@@ -10,4 +10,4 @@ Prepared first-release notes; publication is pending successful remote CI and re
 - Add per-source labels, colors, enable/disable controls, and session-only API-key entry.
 - Add bounded, date-windowed GET fetching, fair source quotas, cancellation, and stale-layer preservation on failed refresh.
 - Document privacy, API, local build, and manual release checks.
-- Add pinned, read-only GitHub Actions CI and a manually guarded release workflow. Neither workflow has been run on GitHub from this checkout.
+- Add pinned, read-only GitHub Actions CI and a manually guarded, reproducible release workflow. Both compatibility jobs passed for the initial implementation PR; each release still requires successful CI on its own exact commit.
