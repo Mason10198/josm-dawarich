@@ -37,11 +37,12 @@ public final class LoadReferenceDialog extends JPanel {
             @Override public Object getCellEditorValue(){char[] chars=((JPasswordField)getComponent()).getPassword(); try{return new String(chars);}finally{Arrays.fill(chars,'\0');}}
         });
         table.getColumnModel().getColumn(3).setCellRenderer((t,v,sel,focus,r,c)->{JLabel x=new JLabel("  "+v);x.setOpaque(true);x.setBackground(sel?t.getSelectionBackground():Color.WHITE);try{x.setForeground(Color.decode(v.toString()));}catch(Exception ignored){}return x;});
-        JPanel form=new JPanel(new GridLayout(0,1));form.add(new JLabel("Dawarich server URL"));form.add(server);form.add(http);
-        form.add(new JLabel("Start and end dates (YYYY-MM-DD); timezone: "+ZoneId.systemDefault())); JPanel dates=new JPanel();dates.add(start);dates.add(end);form.add(dates);form.add(status);
+        JPanel form=new JPanel();form.setLayout(new BoxLayout(form,BoxLayout.Y_AXIS));form.add(new JLabel("Dawarich server URL"));form.add(server);form.add(http);
+        form.add(new JLabel("Start and end dates (YYYY-MM-DD); timezone: "+ZoneId.systemDefault())); JPanel dates=new JPanel();dates.setAlignmentX(Component.LEFT_ALIGNMENT);dates.add(start);dates.add(end);form.add(dates);
+        JScrollPane statusScroll=new JScrollPane(status);statusScroll.setPreferredSize(new Dimension(560,70));statusScroll.setMinimumSize(new Dimension(0,70));statusScroll.setAlignmentX(Component.LEFT_ALIGNMENT);form.add(statusScroll);
         add(form,BorderLayout.NORTH);add(new JScrollPane(table),BorderLayout.CENTER);
         JButton add=new JButton("Add source"), remove=new JButton("Remove selected"), color=new JButton("Choose color"), cancel=new JButton("Cancel");
-        JPanel buttons=new JPanel();buttons.add(add);buttons.add(remove);buttons.add(color);buttons.add(cancel);buttons.add(loadButton);add(buttons,BorderLayout.SOUTH);
+        JPanel buttons=new JPanel(new GridLayout(2,3,6,6));buttons.add(add);buttons.add(remove);buttons.add(color);buttons.add(cancel);buttons.add(loadButton);add(buttons,BorderLayout.SOUTH);
         add.addActionListener(e->{registry.add("Source "+(registry.rows().size()+1));model.fireTableDataChanged();});
         remove.addActionListener(e->{int r=table.getSelectedRow();if(r>=0){registry.remove(registry.rows().get(r).id);model.fireTableDataChanged();}});
         color.addActionListener(e->{int r=table.getSelectedRow();if(r>=0){SourceSettings s=registry.rows().get(r);Color c=JColorChooser.showDialog(this,"Source color",Color.decode(s.color));if(c!=null)registry.updateSettings(new SourceSettings(s.id,s.label,String.format("#%02X%02X%02X",c.getRed(),c.getGreen(),c.getBlue()),s.enabled));model.fireTableDataChanged();}});
@@ -55,6 +56,7 @@ public final class LoadReferenceDialog extends JPanel {
     public JButton loadButton(){return loadButton;}
     public JTextField startDateField(){return start;} public JTextField endDateField(){return end;}
     public JTextField serverField(){return server;} public JCheckBox httpCheckBox(){return http;} public JLabel statusLabel(){return status;}
+    String sourceLabel(String id){return registry.rows().stream().filter(s->s.id.equals(id)).map(s->s.label).findFirst().orElse("Source");}
     public void setLoadHandler(Consumer<LoadRequest> handler){loadHandler=Objects.requireNonNull(handler);loadButton.setEnabled(true);}
     public void setCancelHandler(Runnable handler){cancelHandler=Objects.requireNonNull(handler);}
     public void validateAndCommit(){

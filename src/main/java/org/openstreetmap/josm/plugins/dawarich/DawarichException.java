@@ -1,11 +1,11 @@
 package org.openstreetmap.josm.plugins.dawarich;
 
 public final class DawarichException extends Exception {
-    public enum Category { AUTH, RATE_LIMIT, SERVER, CONNECTIVITY, REDIRECT, PROTOCOL, LIMIT, CANCELLED, DEADLINE }
+    public enum Category { AUTH, RATE_LIMIT, SERVER, CONNECTIVITY, REDIRECT, PROTOCOL, LIMIT, CAPACITY, CANCELLED, DEADLINE }
     private final Category category;
     private final Integer retryAfterSeconds;
-    DawarichException(Category c, String safeMessage, Integer retryAfter) { super(safeMessage); category=c; retryAfterSeconds=retryAfter; }
-    DawarichException(Category c, String safeMessage) { this(c,safeMessage,null); }
+    public DawarichException(Category c, String safeMessage, Integer retryAfter) { super(safeMessage); category=c; retryAfterSeconds=retryAfter; }
+    public DawarichException(Category c, String safeMessage) { this(c,safeMessage,null); }
     public Category category(){return category;}
     public boolean stopsBatch(){return category!=Category.AUTH;}
     public Integer retryAfterSeconds(){return retryAfterSeconds;}
