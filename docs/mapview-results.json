@@ -1,0 +1,32 @@
+{
+  "method": "Real JOSM 19678 MapView.paint on the EDT; synthetic 50k original fixes; small center/scale changes and invalidated layers before each raster paint; one first paint plus 20 warmed frames per source count; imagery disabled; Xvfb 1280x900, JDK17",
+  "results": [
+    {
+      "points": 50000,
+      "sources": 1,
+      "warm_frames": 20,
+      "mean_ms": 49.23105915,
+      "p95_ms": 78.75094,
+      "max_ms": 81.667814,
+      "first_ms": 101.929968
+    },
+    {
+      "points": 50000,
+      "sources": 2,
+      "warm_frames": 20,
+      "mean_ms": 40.50270585,
+      "p95_ms": 51.684762,
+      "max_ms": 51.796451,
+      "first_ms": 38.638379
+    },
+    {
+      "points": 50000,
+      "sources": 4,
+      "warm_frames": 20,
+      "mean_ms": 42.77755705,
+      "p95_ms": 46.781012,
+      "max_ms": 88.33264,
+      "first_ms": 39.881721
+    }
+  ]
+}

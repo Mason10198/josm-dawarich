@@ -1,0 +1,181 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated vX.Y.Z tag on an approved main commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-build:
+    name: Verify approved tag and rebuild
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.verify.outputs.release_sha }}
+    permissions:
+      contents: read
+      actions: read
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate release tag syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'Tag must use the exact vX.Y.Z form.' >&2
+            exit 1
+          }
+      - name: Check out exact tag and history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tag, main ancestry, version, changelog, and exact-commit CI
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" == tag ]] || {
+            echo 'Release tag must be an annotated tag.' >&2
+            exit 1
+          }
+          SHA="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          [[ "$SHA" == "$(git rev-parse HEAD)" ]] || {
+            echo 'Checked-out HEAD is not the requested tag commit.' >&2
+            exit 1
+          }
+          git merge-base --is-ancestor "$SHA" origin/main || {
+            echo 'Release tag is not reachable from origin/main.' >&2
+            exit 1
+          }
+          [[ "$SHA" == "$(git rev-parse origin/main)" ]] || {
+            echo 'Release tag must match the approved current main tip.' >&2
+            exit 1
+          }
+          VERSION="$(awk -F': ' '$1 == "Plugin-Version" { print $2; exit }' src/main/resources/META-INF/MANIFEST.MF)"
+          [[ "$RELEASE_TAG" == "v$VERSION" ]] || {
+            echo 'Release tag does not match Plugin-Version in the manifest.' >&2
+            exit 1
+          }
+          grep -Fqx "## $RELEASE_TAG" CHANGELOG.md || {
+            echo 'Add an exact version heading and accurate notes to CHANGELOG.md before release.' >&2
+            exit 1
+          }
+          REPO="$GITHUB_REPOSITORY" SHA="$SHA" python3 - <<'PY'
+          import json, os, subprocess, sys
+          repo, sha = os.environ['REPO'], os.environ['SHA']
+          def gh(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
+          workflow = gh(f'repos/{repo}/actions/workflows/ci.yml')['id']
+          runs = gh(f'repos/{repo}/actions/workflows/{workflow}/runs?head_sha={sha}&status=completed&per_page=100')['workflow_runs']
+          run = next((r for r in runs if r['head_sha'] == sha and r['conclusion'] == 'success'), None)
+          if run is None:
+              sys.exit('No successful completed CI run exists for the exact tagged commit.')
+          jobs = gh(f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
+          expected = {'Java 17 / JOSM 19678', 'Java 25 / JOSM 19689'}
+          actual = {j['name']: j['conclusion'] for j in jobs if j['name'] in expected}
+          if set(actual) != expected or any(actual[n] != 'success' for n in expected):
+              sys.exit(f'Both compatibility jobs must pass on the exact commit; observed {actual!r}.')
+          print(f"Verified CI run {run['id']} on {sha}: " + ', '.join(f'{n}=success' for n in sorted(expected)))
+          PY
+          echo "release_sha=$SHA" >> "$GITHUB_OUTPUT"
+      - name: Rebuild and test release artifact with pinned Java 17
+        env:
+          JAVA_HOME: ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          EPOCH="$(git show -s --format=%cI HEAD)"
+          ./scripts/bootstrap-build.sh "-Depoch=$EPOCH" clean test dist
+          FIRST="$(sha256sum dist/dawarich.jar | cut -d ' ' -f 1)"
+          ./scripts/bootstrap-build.sh "-Depoch=$EPOCH" clean test dist
+          SECOND="$(sha256sum dist/dawarich.jar | cut -d ' ' -f 1)"
+          [[ "$FIRST" == "$SECOND" ]] || {
+            echo 'Two clean release builds did not reproduce the same artifact.' >&2
+            exit 1
+          }
+      - name: Create SHA-256 sidecar
+        working-directory: dist
+        run: sha256sum dawarich.jar > dawarich.jar.sha256
+      - name: Upload verified release files
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dawarich-release
+          path: |
+            dist/dawarich.jar
+            dist/dawarich.jar.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish approved GitHub Release
+    needs: verify-and-build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      actions: read
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      APPROVED_SHA: ${{ needs.verify-and-build.outputs.release_sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out approved commit release notes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify-and-build.outputs.release_sha }}
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Download release artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dawarich-release
+          path: release-files
+      - name: Verify sidecar and publish once
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$APPROVED_SHA" ]] || {
+            echo 'Main advanced after verification; refusing a stale publication.' >&2
+            exit 1
+          }
+          TAG_REF="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG")"
+          [[ "$(jq -r '.object.type' <<<"$TAG_REF")" == tag ]] || {
+            echo 'Tag is no longer an annotated tag; refusing publication.' >&2
+            exit 1
+          }
+          TAG_OBJECT="$(jq -r '.object.sha' <<<"$TAG_REF")"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$TAG_OBJECT" --jq '.object.type,.object.sha' | paste -sd ' ' -)" == "commit $APPROVED_SHA" ]] || {
+            echo 'Release tag no longer points to the verified commit; refusing publication.' >&2
+            exit 1
+          }
+          cd release-files
+          sha256sum --check dawarich.jar.sha256
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo 'A release already exists for this tag; refusing to overwrite it.' >&2
+            exit 1
+          fi
+          notes="$RUNNER_TEMP/release-notes.md"
+          awk -v heading="## $RELEASE_TAG" '
+            $0 == heading { found=1; next }
+            found && /^## / { exit }
+            found { print }
+            END { if (!found) exit 1 }
+          ' "$GITHUB_WORKSPACE/CHANGELOG.md" > "$notes"
+          test -s "$notes"
+          gh release create "$RELEASE_TAG" dawarich.jar dawarich.jar.sha256 \
+            --verify-tag --title "$RELEASE_TAG" --notes-file "$notes"

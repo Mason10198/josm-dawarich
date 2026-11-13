@@ -1,0 +1,20 @@
+{
+  "method": "single measured run per configuration; production JDK HttpClient -> DawarichClient -> TimeWindowFetcher -> LoadReferenceTask -> MainLayerManager; 20 production-painter frames",
+  "render_caveat": "synthetic painter seam; not full JOSM MapView/viewport frame-rate",
+  "peak_heap_pool_sum_bytes": 383432000,
+  "cancel_header_ms": 3,
+  "cancel_body_ms": 0,
+  "plugin_jar_bytes": 73369,
+  "load_ms": [347, 99, 148, 72, 79, 125, 597, 497, 440],
+  "results": [
+    {"points": 1000, "sources": 1, "load_ms": 347, "used_heap_delta_bytes": 7776920, "painter_20_frames_ms": 26, "painted_point_visits": 20000, "http_requests": 1, "per_source_points": 1000},
+    {"points": 1000, "sources": 2, "load_ms": 99, "used_heap_delta_bytes": 742616, "painter_20_frames_ms": 14, "painted_point_visits": 20000, "http_requests": 2, "per_source_points": 500},
+    {"points": 1000, "sources": 4, "load_ms": 148, "used_heap_delta_bytes": 1657200, "painter_20_frames_ms": 16, "painted_point_visits": 20000, "http_requests": 4, "per_source_points": 250},
+    {"points": 10000, "sources": 1, "load_ms": 72, "used_heap_delta_bytes": 3851840, "painter_20_frames_ms": 121, "painted_point_visits": 200000, "http_requests": 1, "per_source_points": 10000},
+    {"points": 10000, "sources": 2, "load_ms": 79, "used_heap_delta_bytes": 5098760, "painter_20_frames_ms": 122, "painted_point_visits": 200000, "http_requests": 2, "per_source_points": 5000},
+    {"points": 10000, "sources": 4, "load_ms": 125, "used_heap_delta_bytes": 1568256, "painter_20_frames_ms": 131, "painted_point_visits": 200000, "http_requests": 4, "per_source_points": 2500},
+    {"points": 50000, "sources": 1, "load_ms": 597, "used_heap_delta_bytes": 5745048, "painter_20_frames_ms": 582, "painted_point_visits": 1000000, "http_requests": 15, "per_source_points": 50000},
+    {"points": 50000, "sources": 2, "load_ms": 497, "used_heap_delta_bytes": 9852304, "painter_20_frames_ms": 620, "painted_point_visits": 1000000, "http_requests": 14, "per_source_points": 25000},
+    {"points": 50000, "sources": 4, "load_ms": 440, "used_heap_delta_bytes": 9850832, "painter_20_frames_ms": 600, "painted_point_visits": 1000000, "http_requests": 12, "per_source_points": 12500}
+  ]
+}

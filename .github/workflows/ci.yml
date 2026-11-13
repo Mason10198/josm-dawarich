@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Java ${{ matrix.java }} / JOSM ${{ matrix.josm }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - java: '17'
+            josm: '19678'
+            baseline: true
+          - java: '25'
+            josm: '19689'
+            baseline: false
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java ${{ matrix.java }}
+        if: matrix.java == '25'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Run pinned Java 17 baseline tests and build
+        if: matrix.baseline
+        env:
+          JAVA_HOME: ''
+        run: ./scripts/bootstrap-build.sh clean test dist
+      - name: Bootstrap verified build tools
+        if: ${{ !matrix.baseline }}
+        run: ./scripts/bootstrap-build.sh clean
+      - name: Fetch and verify JOSM 19689
+        if: ${{ !matrix.baseline }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.hermes/cache/toolchains"
+          curl --fail --location --retry 3 https://josm.openstreetmap.de/download/josm-snapshot-19689.jar \
+            --output "$HOME/.hermes/cache/toolchains/josm-19689.jar"
+          printf '%s  %s\n' \
+            'feede61a84b3716c556536be38971d5c6d3b389265c7f8d98ef6a2c8aac49d51' \
+            "$HOME/.hermes/cache/toolchains/josm-19689.jar" | sha256sum --check --status
+      - name: Run Java 25 / JOSM 19689 tests and build
+        if: ${{ !matrix.baseline }}
+        run: |
+          "$HOME/.hermes/cache/toolchains/apache-ant-1.10.15/bin/ant" -f build.xml \
+            -Djosm.jar="$HOME/.hermes/cache/toolchains/josm-19689.jar" \
+            -Djunit.console.jar="$HOME/.hermes/cache/toolchains/junit-console.jar" \
+            clean test dist
+      - name: Run isolated synthetic packaged GUI smoke
+        if: matrix.baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v Xvfb >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes xvfb
+          fi
+          python3 scripts/gui-smoke.py

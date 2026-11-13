@@ -24,6 +24,11 @@
     <javac srcdir="src/test/java" destdir="${build.dir}/test-classes" release="17" encoding="UTF-8" includeantruntime="false"><classpath refid="test.cp"/></javac>
     <java classname="org.junit.platform.console.ConsoleLauncher" fork="true" failonerror="true"><classpath><path refid="test.cp"/><pathelement location="${build.dir}/test-classes"/></classpath><arg value="execute"/><arg value="--scan-class-path"/><arg value="--include-classname=${test.includes}"/><arg value="--disable-banner"/></java>
   </target>
+  <target name="benchmark" depends="dist">
+    <mkdir dir="${build.dir}/test-classes"/>
+    <javac srcdir="src/test/java" destdir="${build.dir}/test-classes" release="17" encoding="UTF-8" includeantruntime="false"><classpath refid="test.cp"/></javac>
+    <java classname="org.openstreetmap.josm.plugins.dawarich.PerformanceBenchmark" fork="true" failonerror="true"><classpath><path refid="test.cp"/><pathelement location="${build.dir}/test-classes"/></classpath></java>
+  </target>
   <target name="dist" depends="compile">
     <mkdir dir="${dist.dir}"/>
     <jar destfile="${dist.dir}/dawarich.jar" basedir="${build.dir}/classes" manifest="src/main/resources/META-INF/MANIFEST.MF" update="false" duplicate="fail" modificationtime="${epoch}"/>
