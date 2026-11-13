@@ -12,6 +12,7 @@ public final class ConnectionSettings {
     public static ConnectionSettings parse(String value, boolean allowHttp) {
         try {
             URI u = new URI(Objects.requireNonNull(value));
+            if (value.matches(".*:[0-9]+(?:/.*)?$") && u.getPort() == -1) throw new IllegalArgumentException("Invalid connection URL");
             String scheme = u.getScheme();
             int port = u.getPort();
             if (u.isOpaque() || u.getHost() == null || u.getHost().isEmpty()

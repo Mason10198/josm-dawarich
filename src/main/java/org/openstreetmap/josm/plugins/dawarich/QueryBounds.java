@@ -16,7 +16,7 @@ public final class QueryBounds {
                        LocalDate start, LocalDate end, ZoneId zone, Instant now) {
         if (!Double.isFinite(minLat) || !Double.isFinite(maxLat) || !Double.isFinite(minLon) || !Double.isFinite(maxLon)
                 || minLat < -90 || maxLat > 90 || minLat >= maxLat || minLon < -180 || maxLon > 180
-                || minLon >= maxLon || maxLon - minLon > 180) throw new IllegalArgumentException("Invalid geographic bounds");
+                || minLon >= maxLon || maxLon - minLon > 180 || (maxLat-minLat >= 179.999 && maxLon-minLon >= 359.999)) throw new IllegalArgumentException("Invalid geographic bounds");
         this.minLat=minLat; this.maxLat=maxLat; this.minLon=minLon; this.maxLon=maxLon;
         this.zone=Objects.requireNonNull(zone); Objects.requireNonNull(now);
         if (start == null || end == null || end.isBefore(start) || start.isAfter(now.atZone(zone).toLocalDate()))
