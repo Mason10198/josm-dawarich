@@ -24,7 +24,7 @@ public final class ConnectionPreferences {
             SourceSettings row=new SourceSettings(id,label,color,enabled); if(ids.add(id))registry.add(row);
         } catch(RuntimeException ignored) { } } } catch(RuntimeException ignored) { }
         LocalDate today=LocalDate.now(), start=date(prefs,START,today.minusMonths(12)), end=date(prefs,END,today);
-        if(end.isBefore(start)) { start=today.minusMonths(12); end=today; }
+        if(start.isAfter(today) || end.isAfter(today) || end.isBefore(start)) { start=today.minusMonths(12); end=today; }
         return new Settings(registry,start,end);
     }
     private static LocalDate date(IPreferences p,String key,LocalDate fallback) { try { return LocalDate.parse(p.get(key,fallback.toString())); } catch(RuntimeException e) { return fallback; } }

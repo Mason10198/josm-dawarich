@@ -29,10 +29,19 @@ class ConnectionModelTest {
    switch(m.getName()) {case "put": case "putBoolean": case "putInt": case "putLong": case "putDouble": case "putList": case "putListOfLists": case "putListOfMaps": data.put(k,a[1]); return true;
    case "get": return data.getOrDefault(k,a.length>1?a[1]:null); case "getBoolean":return data.getOrDefault(k,a[1]); case "getList":case "getListOfLists":case "getListOfMaps":return data.getOrDefault(k,a[1]); case "getKeySet":return data.keySet(); case "toString":return data.toString(); default:return null; }
   });
-  SourceRegistry r=new SourceRegistry(); SourceSettings a=r.add("One"),b=r.add("Two"),c=r.add("Three"); r.setKey(a.id,"secret-a");r.setKey(b.id,"secret-b");r.setKey(c.id,"secret-c");r.setEndpoint("https://host/base",false);
+  SourceRegistry r=new SourceRegistry(); SourceSettings a=r.add("One"),b=r.add("Two"),c=r.add("Three"); r.setEndpoint("https://host/base",false); r.setKey(a.id,"secret-a");r.setKey(b.id,"secret-b");r.setKey(c.id,"secret-c");
+  assertEquals("secret-a",r.session(a.id).snapshot().apiKey()); assertEquals("secret-b",r.session(b.id).snapshot().apiKey()); assertEquals("secret-c",r.session(c.id).snapshot().apiKey());
   LocalDate start=LocalDate.parse("2025-01-02"),end=LocalDate.parse("2025-03-04"); ConnectionPreferences.save(p,r,start,end);
   assertFalse(data.toString().contains("secret-")); var loaded=ConnectionPreferences.load(p); assertEquals(3,loaded.registry().rows().size()); assertEquals(start,loaded.startDate());assertEquals(end,loaded.endDate());
   for(SourceSettings row:loaded.registry().rows())assertNull(loaded.registry().session(row.id).snapshot().apiKey());
+  LocalDate today=LocalDate.now(), fallback=today.minusMonths(12);
+  data.put("dawarich.startDate","bad-date"); data.put("dawarich.endDate",today.toString());
+  var invalid=ConnectionPreferences.load(p); assertEquals(fallback,invalid.startDate()); assertEquals(today,invalid.endDate());
+  data.put("dawarich.startDate",today.plusDays(1).toString()); data.put("dawarich.endDate",today.plusDays(2).toString());
+  var future=ConnectionPreferences.load(p); assertEquals(fallback,future.startDate()); assertEquals(today,future.endDate());
+  data.put("dawarich.startDate",today.toString()); data.put("dawarich.endDate",today.minusDays(1).toString());
+  var reversed=ConnectionPreferences.load(p); assertEquals(fallback,reversed.startDate()); assertEquals(today,reversed.endDate());
+  assertEquals(3,future.registry().rows().size()); for(SourceSettings row:future.registry().rows())assertNull(future.registry().session(row.id).snapshot().apiKey());
  }
  @Test void dstInclusiveAndFutureCapped() {
   ZoneId z=ZoneId.of("America/New_York"); Instant now=Instant.parse("2025-11-02T12:00:00Z");
