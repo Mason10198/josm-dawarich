@@ -1,0 +1,30 @@
+<project name="dawarich" default="test">
+  <property file="build.properties"/>
+  <property environment="env"/>
+  <property name="toolchain" location="${user.home}/.hermes/cache/toolchains"/>
+  <property name="josm.jar" location="${toolchain}/josm-${JOSM_VERSION}.jar"/>
+  <property name="junit.jar" location="${toolchain}/junit-console.jar"/>
+  <property name="java.home.local" location="${toolchain}/jdk17"/>
+  <property name="ant.home.local" location="${toolchain}/apache-ant-${ANT_VERSION}"/>
+  <property name="build.dir" location="build"/>
+  <property name="dist.dir" location="dist"/>
+  <property name="epoch" value="2020-01-01T00:00:00Z"/>
+  <path id="main.cp"><pathelement location="${josm.jar}"/></path>
+  <path id="test.cp"><pathelement location="${josm.jar}"/><pathelement location="${junit.jar}"/><pathelement location="${build.dir}/classes"/></path>
+  <target name="clean"><delete dir="${build.dir}"/><delete dir="${dist.dir}"/></target>
+  <target name="compile">
+    <mkdir dir="${build.dir}/classes"/>
+    <javac srcdir="src/main/java" destdir="${build.dir}/classes" release="17" encoding="UTF-8" includeantruntime="false"><classpath refid="main.cp"/></javac>
+    <copy todir="${build.dir}/classes"><fileset dir="src/main/resources"/></copy>
+  </target>
+  <target name="test" depends="dist">
+    <mkdir dir="${build.dir}/test-classes"/>
+    <javac srcdir="src/test/java" destdir="${build.dir}/test-classes" release="17" encoding="UTF-8" includeantruntime="false"><classpath refid="test.cp"/></javac>
+    <java classname="org.junit.platform.console.ConsoleLauncher" fork="true" failonerror="true"><classpath><path refid="test.cp"/><pathelement location="${build.dir}/test-classes"/></classpath><arg value="execute"/><arg value="--scan-class-path"/><arg value="--disable-banner"/></java>
+  </target>
+  <target name="dist" depends="compile">
+    <mkdir dir="${dist.dir}"/>
+    <jar destfile="${dist.dir}/dawarich.jar" basedir="${build.dir}/classes" manifest="src/main/resources/META-INF/MANIFEST.MF" update="false" duplicate="fail" modificationtime="${epoch}"/>
+  </target>
+  <target name="benchmark" depends="compile" description="Reserved seam for future isolated benchmark harness"/>
+</project>
