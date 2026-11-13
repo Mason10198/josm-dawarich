@@ -41,6 +41,7 @@ public final class DawarichLayer extends Layer {
     public String serverIdentity() { return serverIdentity; }
     public String sourceId() { return sourceId; }
     public int pointCount() { ReferenceDataset d = dataset; return d == null ? 0 : d.points().size(); }
+    ReferenceDataset datasetPoints() { return dataset; }
 
     public synchronized void replaceDataset(ReferenceDataset replacement) {
         Objects.requireNonNull(replacement);
