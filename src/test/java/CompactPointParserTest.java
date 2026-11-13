@@ -23,7 +23,29 @@ class CompactPointParserTest {
         assertThrows(UnsupportedOperationException.class, () -> points.add(points.get(0)));
     }
 
-    @Test void acceptsEmptyArrayAndZeroLimit() { assertTrue(parse("[]", 0).isEmpty()); }
+    @Test void rowHelperProducesValidBaseline() {
+        String baseline = row("1", "0", "0", "0");
+        assertEquals(1, parse(baseline, 1).size());
+    }
+
+    @Test void nestedUnknownFieldNamesCannotPolluteRequiredFieldsOrDuplicateChecks() {
+        for (String metadata : List.of("{\"latitude\":22}", "{\"id\":2,\"timestamp\":9}",
+                "{\"latitude\":22,\"longitude\":30,\"timestamp\":9,\"id\":2}")) {
+            String json = "[{\"id\":1,\"latitude\":0,\"longitude\":0,\"timestamp\":0,\"metadata\":" + metadata + "}]";
+            ReferencePoint point = parse(json, 1).get(0);
+            assertEquals(1L, point.id());
+            assertEquals(0d, point.latitude());
+            assertEquals(0d, point.longitude());
+            assertEquals(0L, point.timestamp());
+        }
+    }
+
+    @Test void rejectsNestedUnknownFieldsDeeperThan32() {
+        String nested = "0";
+        for (int i = 0; i < 33; i++) nested = "[" + nested + "]";
+        String tooDeep = nested;
+        assertThrows(IllegalArgumentException.class, () -> parse("[{\"id\":1,\"latitude\":0,\"longitude\":0,\"timestamp\":0,\"extra\":" + tooDeep + "}]", 1));
+    }
 
     @Test void rejectsMalformedTopLevelAndTrailingContent() {
         for (String json : List.of("{}", "<html>", "[] {}", "[] true"))
@@ -64,7 +86,7 @@ class CompactPointParserTest {
     }
 
     private static String row(String id, String lat, String lon, String time) {
-        return "[{\"id\":" + id + ",\"latitude\":" + lat + ",\"longitude\":" + lon + ",\"timestamp\":" + time + "]";
+        return "[{\"id\":" + id + ",\"latitude\":" + lat + ",\"longitude\":" + lon + ",\"timestamp\":" + time + "}]";
     }
     private static String rowBody(String id) { return "{\"id\":" + id + ",\"latitude\":\"0\",\"longitude\":\"0\",\"timestamp\":0}"; }
 }

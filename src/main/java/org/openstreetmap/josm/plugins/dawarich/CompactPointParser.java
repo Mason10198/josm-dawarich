@@ -23,22 +23,16 @@ public final class CompactPointParser {
             if (!parser.hasNext() || parser.next() != Event.START_ARRAY) throw invalid();
             List<ReferencePoint> points = new ArrayList<>(Math.min(maxRows, 256));
             Set<Long> ids = new HashSet<>();
-            int depth = 0;
             while (parser.hasNext()) {
                 Event e = parser.next();
-                if (e == Event.END_ARRAY && depth == 0) {
+                if (e == Event.END_ARRAY) {
                     if (parser.hasNext()) throw invalid();
                     return List.copyOf(points);
                 }
-                if (depth == 0) {
-                    if (e != Event.START_OBJECT || points.size() >= maxRows) throw invalid();
-                    ReferencePoint point = readPoint(parser);
-                    if (!ids.add(point.id())) throw invalid();
-                    points.add(point);
-                } else {
-                    depth += e == Event.START_ARRAY || e == Event.START_OBJECT ? 1 : 0;
-                    depth -= e == Event.END_ARRAY || e == Event.END_OBJECT ? 1 : 0;
-                }
+                if (e != Event.START_OBJECT || points.size() >= maxRows) throw invalid();
+                ReferencePoint point = readPoint(parser);
+                if (!ids.add(point.id())) throw invalid();
+                points.add(point);
             }
             throw invalid();
         } catch (IllegalArgumentException ex) {
@@ -57,13 +51,13 @@ public final class CompactPointParser {
         String key = null;
         while (p.hasNext()) {
             Event e = p.next();
-            if (e == Event.KEY_NAME) { key = p.getString(); continue; }
             if (nested > 0) {
                 if (e == Event.START_ARRAY || e == Event.START_OBJECT) {
                     if (++nested > 32) throw invalid();
                 } else if (e == Event.END_ARRAY || e == Event.END_OBJECT) nested--;
                 continue;
             }
+            if (e == Event.KEY_NAME) { key = p.getString(); continue; }
             if (e == Event.END_OBJECT) {
                 if (id == null || latitude == null || longitude == null || timestamp == null) throw invalid();
                 return new ReferencePoint(id, latitude, longitude, timestamp);
