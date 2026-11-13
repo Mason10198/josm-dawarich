@@ -7,9 +7,10 @@ import static org.junit.Assert.*;
 
 public class TimeWindowFetcherTest {
     private final QueryBounds bounds = new QueryBounds(-10,10,-10,10,LocalDate.of(1970,1,1),LocalDate.of(1970,1,1),ZoneOffset.UTC,Instant.ofEpochSecond(99));
+    @FunctionalInterface private interface Handler { DawarichClient.Page apply(long a,long b) throws DawarichException; }
     private static class Fake implements TimeWindowFetcher.PageFetcher {
-        final List<long[]> calls=new ArrayList<>(); final java.util.function.BiFunction<Long,Long,DawarichClient.Page> fn;
-        Fake(java.util.function.BiFunction<Long,Long,DawarichClient.Page> fn){this.fn=fn;}
+        final List<long[]> calls=new ArrayList<>(); final Handler fn;
+        Fake(Handler fn){this.fn=fn;}
         public DawarichClient.Page fetch(long a,long b)throws DawarichException{calls.add(new long[]{a,b});return fn.apply(a,b);}
     }
     private BatchBudget budget(){return new BatchBudget(128,Duration.ofSeconds(60),64*1024*1024,8*1024*1024);}
@@ -23,9 +24,27 @@ public class TimeWindowFetcherTest {
     }
     @Test public void tiedTimestampOracleDiscardsFullParentAndRetainsEveryPoint() throws Exception{
         List<ReferencePoint> all=new ArrayList<>();for(int i=1;i<=12000;i++)all.add(point(i,i<=6000?10:11));
-        Fake f=new Fake((a,b)-> {if(a==0&&b==99)return page(all.subList(0,10000),2);List<ReferencePoint> sub=all.stream().filter(p->p.timestamp()>=a&&p.timestamp()<=b).toList();return page(sub,1);});
+        Fake f=new Fake((a,b)-> {
+            List<ReferencePoint> sub=all.stream().filter(p->p.timestamp()>=a&&p.timestamp()<=b).toList();
+            return page(sub.subList(0,Math.min(10000,sub.size())),(sub.size()+9999)/10000);
+        });
         var d=new TimeWindowFetcher(f).fetch("https://s","src","unused",bounds,12000,budget());
-        assertEquals(12000,d.points().size());assertEquals(12000,d.points().stream().map(ReferencePoint::id).distinct().count());assertEquals(3,f.calls.size());
+        assertEquals(12000,d.points().size());assertEquals(12000,d.points().stream().map(ReferencePoint::id).distinct().count());
+        assertTrue(f.calls.size()>3);
+        Map<Long,ReferencePoint> expected=new HashMap<>();for(ReferencePoint p:all)expected.put(p.id(),p);
+        for(ReferencePoint p:d.points())assertEquals(expected.get(p.id()),p);
+    }
+    @Test public void splitRequestsRespectBudget() throws Exception {
+        List<ReferencePoint> all=new ArrayList<>();for(int i=1;i<=12000;i++)all.add(point(i,i<=6000?10:11));
+        BatchBudget limited=new BatchBudget(2,Duration.ofSeconds(60),64*1024*1024,8*1024*1024);
+        Fake f=new Fake((a,b)-> {limited.beginRequest();List<ReferencePoint> sub=all.stream().filter(p->p.timestamp()>=a&&p.timestamp()<=b).toList();return page(sub.subList(0,Math.min(10000,sub.size())),(sub.size()+9999)/10000);});
+        try{new TimeWindowFetcher(f).fetch("s","x","k",bounds,12000,limited);fail();}catch(DawarichException e){assertEquals(DawarichException.Category.LIMIT,e.category());}
+        assertEquals(3,f.calls.size());
+    }
+    @Test public void cancellationDuringProbePreventsChildRequests() throws Exception {
+        BatchBudget cancelled=budget();Fake f=new Fake((a,b)->{cancelled.beginRequest();cancelled.cancel();return page(List.of(point(1,a)),2);});
+        try{new TimeWindowFetcher(f).fetch("s","x","k",bounds,10,cancelled);fail();}catch(DawarichException e){assertEquals(DawarichException.Category.CANCELLED,e.category());}
+        assertEquals(1,f.calls.size());
     }
     @Test public void emptyAndExactPageAccepted() throws Exception{
         Fake empty=new Fake((a,b)->page(List.of(),0));assertTrue(new TimeWindowFetcher(empty).fetch("s","x","k",bounds,0,budget()).points().isEmpty());
