@@ -1,6 +1,6 @@
 # JOSM Dawarich reference layer
 
-A community-built JOSM plugin for viewing selected Dawarich GPS fixes as temporary, read-only reference layers. It is not an official Dawarich product, is not listed in the JOSM plugin registry, and has not been published as a release. The intended public repository is `Mason10198/josm-dawarich`; availability there is not yet confirmed. Do not send private instance details, API keys, or GPS data to the project maintainers.
+A community-built JOSM plugin for viewing selected Dawarich GPS fixes as temporary, read-only reference layers. Public source: [Mason10198/josm-dawarich](https://github.com/Mason10198/josm-dawarich). This is not an official Dawarich product. Check [Releases](https://github.com/Mason10198/josm-dawarich/releases) for published artifacts; official JOSM-directory registration is a separate step. Do not send private instance details, API keys, or GPS data to the project maintainers.
 
 ## What it does
 
@@ -34,7 +34,7 @@ The test selector is a Java regular expression matching test class names (not me
 ./scripts/bootstrap-build.sh -Dtest.includes='ConnectionStateTest' clean test
 ```
 
-The JAR is written to `dist/dawarich.jar`. To exercise the packaged JAR in an isolated synthetic GUI smoke (requires Xvfb), run `python3 scripts/gui-smoke.py`; receipts stay under `build/gui-smoke-*/`. This is not a live-service check. This build bootstrap is currently Linux x86-64-specific; Windows and macOS setup has not been documented or verified. Java 25/JOSM 19689 is a drafted secondary compatibility CI job and has not been run.
+The JAR is written to `dist/dawarich.jar`. To exercise the packaged JAR in an isolated synthetic GUI smoke (requires Xvfb), run `python3 scripts/gui-smoke.py`; receipts stay under `build/gui-smoke-*/`. Add `--renderer` for the opt-in actual MapView paint check. This is not a live-service check. This build bootstrap is currently Linux x86-64-specific; Windows and macOS setup has not been documented or verified. GitHub CI checks both Java 17/JOSM 19678 and Java 25/JOSM 19689; check the exact commit's run rather than assuming an earlier pass covers later changes.
 
 ## Local manual installation
 
