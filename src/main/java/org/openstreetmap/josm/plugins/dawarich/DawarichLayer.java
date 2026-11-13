@@ -13,6 +13,14 @@ import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.osm.visitor.BoundingXYVisitor;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.layer.Layer;
+
+import org.openstreetmap.josm.gui.layer.Layer.SeparatorLayerAction;
+import org.openstreetmap.josm.gui.layer.CustomizeColor;
+import org.openstreetmap.josm.actions.RenameLayerAction;
+import org.openstreetmap.josm.gui.dialogs.LayerListPopup;
+import org.openstreetmap.josm.tools.I18n;
+import java.awt.event.ActionEvent;
+import javax.swing.AbstractAction;
 import org.openstreetmap.josm.tools.ImageProvider;
 
 /** Source-scoped, read-only reference fixes. */
@@ -20,7 +28,7 @@ public final class DawarichLayer extends Layer {
     private final String serverIdentity;
     private final String sourceId;
     private volatile ReferenceDataset dataset;
-    private Color color;
+    private volatile Color color;
 
     public DawarichLayer(ReferenceDataset dataset, String label, Color color) {
         super(Objects.requireNonNull(label));
@@ -67,7 +75,33 @@ public final class DawarichLayer extends Layer {
     @Override public synchronized void setColor(Color color) { this.color = Objects.requireNonNull(color); invalidate(); }
     @Override public String getToolTipText() { return getName() + " — " + pointCount() + " reference points"; }
     @Override public Object getInfoComponent() { return new JLabel(getToolTipText()); }
-    @Override public Action[] getMenuEntries() { return new Action[0]; }
+    @Override public Action[] getMenuEntries() {
+        return new Action[] {
+            new AbstractAction(I18n.tr("Show/hide layer")) {
+                @Override public void actionPerformed(ActionEvent e) { setVisible(!isVisible()); }
+            },
+            new AbstractAction(I18n.tr("Delete layer")) {
+                @Override public void actionPerformed(ActionEvent e) {
+                    org.openstreetmap.josm.gui.MainApplication.getLayerManager().removeLayer(DawarichLayer.this);
+                }
+            },
+            new AbstractAction(I18n.tr("Zoom to layer")) {
+                @Override public void actionPerformed(ActionEvent e) {
+                    org.openstreetmap.josm.gui.MapFrame map = org.openstreetmap.josm.gui.MainApplication.getMap();
+                    if (map != null) {
+                        org.openstreetmap.josm.data.ProjectionBounds bounds = getViewProjectionBounds();
+                        if (bounds != null) map.mapView.scheduleZoomTo(new org.openstreetmap.josm.data.ViewportData(bounds));
+                    }
+                }
+            },
+            SeparatorLayerAction.INSTANCE,
+            new CustomizeColor(this),
+            SeparatorLayerAction.INSTANCE,
+            new RenameLayerAction(getAssociatedFile(), this),
+            SeparatorLayerAction.INSTANCE,
+            new LayerListPopup.InfoAction(this)
+        };
+    }
     @Override public void mergeFrom(Layer layer) { throw new UnsupportedOperationException("Reference layers cannot be merged"); }
     @Override public boolean isMergable(Layer layer) { return false; }
     @Override public void visitBoundingBox(BoundingXYVisitor visitor) {
