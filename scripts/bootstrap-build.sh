@@ -4,7 +4,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 TC="${HOME}/.hermes/cache/toolchains"
 mkdir -p "$TC"
 fetch_verify() { url=$1 file=$2 sum=$3 algo=$4; if [ ! -f "$file" ]; then curl -fL --retry 3 "$url" -o "$file"; fi; printf '%s  %s\n' "$sum" "$file" | "${algo}sum" -c -; }
-fetch_verify https://aka.ms/download-jdk/microsoft-jdk-17-linux-x64.tar.gz "$TC/jdk17.tar.gz" f7230e6d76ccfd62ceb11687a24e93d1f63d236e6a5fdeb8d923700075de42f8 sha256
+fetch_verify https://download.visualstudio.microsoft.com/download/pr/0fc57e6e-bd55-4905-82a1-a0b812f4d3a5/e821f602898cffa22f295b4bdcd5b2db/microsoft-jdk-17.0.21.0.2-linux-x64.tar.gz "$TC/jdk17.tar.gz" f7230e6d76ccfd62ceb11687a24e93d1f63d236e6a5fdeb8d923700075de42f8 sha256
 [ -x "$TC/jdk17/bin/javac" ] || { mkdir -p "$TC/jdk17"; tar -xzf "$TC/jdk17.tar.gz" -C "$TC/jdk17" --strip-components=1; }
 fetch_verify https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.15-bin.tar.gz "$TC/ant.tar.gz" d78427aff207592c024ff1552dc04f7b57065a195c42d398fcffe7a0145e8d00cd46786f5aa52e77ab0fdf81334f065eb8011eecd2b48f7228e97ff4cb20d16c sha512
 [ -x "$TC/apache-ant-1.10.15/bin/ant" ] || tar -xzf "$TC/ant.tar.gz" -C "$TC"
