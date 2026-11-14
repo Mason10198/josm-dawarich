@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Plugin-Id: dawarich
 Plugin-Class: org.openstreetmap.josm.plugins.dawarich.DawarichPlugin
-Plugin-Version: 0.1.0
+Plugin-Version: 0.1.1
 Plugin-Mainversion: 19678
 Plugin-Minimum-Java-Version: 17
 Plugin-Description: Thin private GPS reference connector

@@ -28,7 +28,7 @@ public final class DawarichClient {
         try {
             URI uri=endpoint(bounds,startInclusive,endInclusive);
             HttpRequest request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20)).header("Authorization","Bearer "+key)
-                    .header("User-Agent","josm-dawarich/0.1.0").header("Accept","application/json").header("Accept-Encoding","identity").GET().build();
+                    .header("User-Agent","josm-dawarich/0.1.1").header("Accept","application/json").header("Accept-Encoding","identity").GET().build();
             pending=http.sendAsync(request, info -> new LimitedSubscriber(budget));
             budget.register(pending);
             long remaining=budget.remainingNanos(); if(remaining<=0)throw DawarichException.deadline();

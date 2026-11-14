@@ -12,7 +12,7 @@ class ArtifactContractTest {
       var m=jar.getManifest().getMainAttributes();
       assertEquals("dawarich",m.getValue("Plugin-Id"));
       assertEquals("org.openstreetmap.josm.plugins.dawarich.DawarichPlugin",m.getValue("Plugin-Class"));
-      assertEquals("0.1.0",m.getValue("Plugin-Version"));
+      assertEquals("0.1.1",m.getValue("Plugin-Version"));
       assertEquals("19678",m.getValue("Plugin-Mainversion"));
       assertEquals("17",m.getValue("Plugin-Minimum-Java-Version"));
       assertEquals("Thin private GPS reference connector",m.getValue("Plugin-Description"));
