@@ -17,7 +17,7 @@ class ProgressTransportTest {
     @Test void timeFetcherCountsAcceptedPointsNotDiscardedProbePage() throws Exception {
         QueryBounds q=new QueryBounds(-1,1,-1,1,LocalDate.of(2024,1,1),LocalDate.of(2024,1,2),ZoneId.of("UTC"),Instant.now());
         BatchBudget budget=new BatchBudget();final int[] calls={0};
-        TimeWindowFetcher fetcher=new TimeWindowFetcher((a,b)->{calls[0]++;if(calls[0]==1)return new DawarichClient.Page(List.of(),2);return new DawarichClient.Page(List.of(new ReferencePoint(calls[0],0,0,a)),1);});
+        TimeWindowFetcher fetcher=new TimeWindowFetcher((a,b)->{calls[0]++;if(calls[0]==1)return new DawarichClient.Page(List.of(new ReferencePoint(1,0,0,a),new ReferencePoint(2,0,0,a+1)),2);if(calls[0]==2)return new DawarichClient.Page(List.of(new ReferencePoint(2,0,0,a)),1);return new DawarichClient.Page(List.of(),0);});
         fetcher.fetch("https://example.test","source","dummy",q,10,budget);
         assertEquals(2,budget.selectedPointCount());assertEquals(0,budget.requestCount());
     }

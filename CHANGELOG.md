@@ -2,6 +2,15 @@
 
 Published artifacts and checksums are available from the GitHub releases page.
 
+## v0.4.0
+
+- Replace saturated-page discard/bisection in both loaders with forward timestamp cursor traversal. Retain each complete page interior immediately; re-read only its boundary second to resolve timestamp ties safely, without offset pagination or guessed omissions.
+- Advance selected-point progress after accepted data rather than leaving it at zero through repeated broad probes. Validate overlapping boundary IDs and original values; fail explicitly on changed or unresolvable dense boundaries.
+- Increase bounded aggregate transfer headroom to 128 MiB and batch duration to 180 seconds for larger slim responses. Keep the 128-request and 8 MiB/response safeguards and point quotas.
+- Add per-person/device opt-in remembering through JOSM's credential manager, scoped to the normalized full endpoint and stable source UUID. Remembered keys survive process restarts and plugin updates. The UI explicitly warns that JOSM's default storage is unencrypted.
+- Forget stored keys on opt-out/source removal/server change, retain opted-in keys on shutdown, persist matching source metadata when credentials change, and register default-backend credential fields as sensitive for diagnostics.
+- Add actual 250,000-point packaged HTTP download/publication acceptance with exact original-data checks, plus an isolated two-process remembered-key restart check. Prior renderer-only 250,000-point acceptance did not establish download viability.
+
 ## v0.3.0
 
 - Guide first-time users through imagery setup, GPS-source connection, point selection, and comparison. Add a discoverable Imagery-menu command while retaining the GPS command.

@@ -70,4 +70,5 @@ jobs:
             sudo apt-get update
             sudo apt-get install --yes xvfb
           fi
-          python3 scripts/gui-smoke.py
+          python3 scripts/gui-smoke.py --large-download
+          python3 scripts/credential-restart-smoke.py

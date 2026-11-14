@@ -5,7 +5,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /** In-memory orchestration state for connection-wide endpoint and per-source credentials. */
 public final class SourceRegistry {
-    public enum ChangeKind { KEY, SERVER, ENABLED, REMOVED, STYLE }
+    public enum ChangeKind { KEY, SERVER, ENABLED, REMOVED, STYLE, REMEMBER }
     public record Change(ChangeKind kind, String sourceId) { }
     @FunctionalInterface public interface ChangeListener { void changed(Change change); }
     private final CopyOnWriteArrayList<ChangeListener> listeners = new CopyOnWriteArrayList<>();
@@ -17,16 +17,35 @@ public final class SourceRegistry {
     private long endpointGeneration;
     private final LinkedHashMap<String, SourceSettings> settings=new LinkedHashMap<>();
     private final LinkedHashMap<String, SourceSession> sessions=new LinkedHashMap<>();
+    private final SavedApiKeys savedKeys;
+    private final Set<String> remembered=new HashSet<>();
+    private String credentialWarning;
+    public SourceRegistry(){this(null);}
+    public SourceRegistry(SavedApiKeys store){savedKeys=store;}
+    public synchronized boolean supportsRemembering(){return savedKeys!=null;}
+    public synchronized boolean isRemembered(String id){return remembered.contains(id);}
+    public synchronized String credentialWarning(){return credentialWarning;}
+    public void setRemembered(String id,boolean value){
+        synchronized(this){SourceSession session=require(id);if(remembered.contains(id)==value)return;
+            if(value){if(savedKeys==null||endpoint==null)throw new IllegalStateException("Enter a valid server before remembering an API key");String key=session.snapshot().apiKey();if(key!=null&&!key.isBlank())savedKeys.save(endpoint,id,key);remembered.add(id);}
+            else{if(savedKeys!=null&&endpoint!=null)savedKeys.delete(endpoint,id);remembered.remove(id);}}
+        fire(ChangeKind.REMEMBER,id);
+    }
+    synchronized void restoreRemembered(String id){
+        if(savedKeys==null||endpoint==null)return;
+        try{String key=savedKeys.load(endpoint,id);if(key!=null&&!key.isBlank()){setKey(id,key);remembered.add(id);}}
+        catch(RuntimeException e){credentialWarning="A saved API key could not be restored; re-enter it or check JOSM's credential store";}
+    }
     private static final String[] COLORS={"#2E86AB","#F18F01","#6A994E","#9B5DE5","#D1495B","#00A896"};
     public synchronized SourceSettings add(String label){String id=UUID.randomUUID().toString();int n=settings.size();SourceSettings s=new SourceSettings(id,label,COLORS[n%COLORS.length],true);settings.put(id,s);sessions.put(id,new SourceSession(id,"",true));return s;}
     public synchronized void add(SourceSettings row){if(settings.containsKey(row.id))throw new IllegalArgumentException("Duplicate source id");settings.put(row.id,row);sessions.put(row.id,new SourceSession(row.id,"",row.enabled));}
     public void updateSettings(SourceSettings row){boolean style,enabled; synchronized(this){SourceSession session=require(row.id);SourceSettings old=settings.get(row.id);style=!Objects.equals(old.label,row.label)||!Objects.equals(old.color,row.color);enabled=old.enabled!=row.enabled;settings.put(row.id,new SourceSettings(row.id,row.label,row.color,row.enabled));session.setEnabled(row.enabled);}if(style)fire(ChangeKind.STYLE,row.id);if(enabled)fire(ChangeKind.ENABLED,row.id);}
     public synchronized List<SourceSettings> rows(){return List.copyOf(settings.values());}
     public synchronized SourceSession session(String id){return sessions.get(id);}
-    public void remove(String id){synchronized(this){SourceSession s=sessions.remove(id);if(s==null)throw new IllegalArgumentException("Unknown source");s.remove();settings.remove(id);}fire(ChangeKind.REMOVED,id);}
+    public void remove(String id){synchronized(this){SourceSession s=require(id);if(remembered.contains(id)&&savedKeys!=null&&endpoint!=null)savedKeys.delete(endpoint,id);remembered.remove(id);sessions.remove(id);s.remove();settings.remove(id);}fire(ChangeKind.REMOVED,id);}
     public void setEnabled(String id,boolean enabled){boolean changed;synchronized(this){SourceSession s=require(id);SourceSettings old=settings.get(id);changed=old.enabled!=enabled;s.setEnabled(enabled);settings.put(id,new SourceSettings(old.id,old.label,old.color,enabled));}if(changed)fire(ChangeKind.ENABLED,id);}
-    public void setKey(String id,String key){boolean changed;synchronized(this){SourceSession target=require(id);if(key!=null&&!key.isEmpty())for(var e:sessions.entrySet())if(!e.getKey().equals(id)&&!e.getValue().removed()&&key.equals(e.getValue().snapshot().apiKey()))throw new IllegalArgumentException("Duplicate API keys");String old=target.snapshot().apiKey();target.setApiKey(key);changed=!Objects.equals(old,key);}if(changed)fire(ChangeKind.KEY,id);}
-    public void setEndpoint(String url,boolean httpAck){boolean changed;synchronized(this){ConnectionSettings parsed=ConnectionSettings.parse(url,httpAck);boolean normalizedAck=parsed.baseUrl().regionMatches(true,0,"http://",0,7)&&httpAck;changed=!Objects.equals(endpoint,parsed.baseUrl());if(changed){for(SourceSession s:sessions.values())s.invalidate();endpointGeneration++;}endpoint=parsed.baseUrl();allowHttp=normalizedAck;}if(changed)fire(ChangeKind.SERVER,null);}
+    public void setKey(String id,String key){boolean changed;synchronized(this){SourceSession target=require(id);if(key!=null&&!key.isEmpty())for(var e:sessions.entrySet())if(!e.getKey().equals(id)&&!e.getValue().removed()&&key.equals(e.getValue().snapshot().apiKey()))throw new IllegalArgumentException("Duplicate API keys");String old=target.snapshot().apiKey();if(!Objects.equals(old,key)&&remembered.contains(id)&&savedKeys!=null&&endpoint!=null)savedKeys.save(endpoint,id,key);target.setApiKey(key);changed=!Objects.equals(old,key);}if(changed)fire(ChangeKind.KEY,id);}
+    public void setEndpoint(String url,boolean httpAck){boolean changed;synchronized(this){ConnectionSettings parsed=ConnectionSettings.parse(url,httpAck);boolean normalizedAck=parsed.baseUrl().regionMatches(true,0,"http://",0,7)&&httpAck;changed=!Objects.equals(endpoint,parsed.baseUrl());if(changed){if(savedKeys!=null&&endpoint!=null)for(String id:remembered)savedKeys.delete(endpoint,id);remembered.clear();for(SourceSession s:sessions.values())s.invalidate();endpointGeneration++;}endpoint=parsed.baseUrl();allowHttp=normalizedAck;}if(changed)fire(ChangeKind.SERVER,null);}
     public synchronized String endpoint(){return endpoint;} public synchronized boolean allowHttp(){return allowHttp;} public synchronized long endpointGeneration(){return endpointGeneration;}
     public synchronized void clearKeys(){for(SourceSession s:sessions.values())s.invalidate();}
     private SourceSession require(String id){SourceSession s=sessions.get(id);if(s==null)throw new IllegalArgumentException("Unknown source");return s;}

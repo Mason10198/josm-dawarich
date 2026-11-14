@@ -115,7 +115,7 @@ public final class LoadReferenceAction extends JosmAction {
                 "Invalid request or response", "Batch limit exceeded", "Batch deadline exceeded",
                 "Source exceeds its fair point capacity", "Source returned mismatched dataset identity",
                 "Retained point capacity exceeded", "Invalid dataset parameters", "Point outside requested bounds",
-                "Duplicate point identifier", "Unexpected point order",
+                "Duplicate point identifier", "Unexpected point order", "Conflicting duplicate point identifier", "Boundary observations changed during download; retry the load",
                 "Point limit exceeded; narrow the area or dates, or raise the total point budget",
                 "Request limit exceeded; narrow the area or dates",
                 "Response byte limit exceeded; narrow the area or dates",

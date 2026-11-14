@@ -31,6 +31,7 @@ public final class LoadReferenceDialog extends JPanel {
     private final JSpinner recentCount=new JSpinner(new SpinnerNumberModel(10000,1,LoadOptions.MAX_TOTAL_POINTS,1000));
     private final JSpinner totalBudget=new JSpinner(new SpinnerNumberModel(50000,1,LoadOptions.MAX_TOTAL_POINTS,1000));
     private final JCheckBox http=new JCheckBox("Allow unencrypted HTTP (trusted servers only)");
+    private final JCheckBox remember=new JCheckBox("Remember API key on this computer");
     private final JToggleButton advancedToggle=new JToggleButton("Advanced settings");
     private final JProgressBar progressBar=new JProgressBar();
     private final JButton loadButton=new JButton("Load GPS for this area"),cancelButton=new JButton("Stop download"),closeButton=new JButton("Close");
@@ -86,14 +87,19 @@ public final class LoadReferenceDialog extends JPanel {
         if(model.getRowCount()>0)table.setRowSelectionInterval(0,0);updateKeyState();updateModeControls();
         table.getSelectionModel().addListSelectionListener(e->{if(!e.getValueIsAdjusting()&&!refreshing){clearVisibleKey();updateKeyState();}});
         server.getDocument().addDocumentListener(new DocumentListener(){
-            private void changed(){http.setSelected(false);clearVisibleKey();}
+            private void changed(){http.setSelected(false);clearVisibleKey();remember.setSelected(false);}
             public void insertUpdate(DocumentEvent e){changed();}public void removeUpdate(DocumentEvent e){changed();}public void changedUpdate(DocumentEvent e){changed();}
         });
         mode.addActionListener(e->updateModeControls());
         useKey.addActionListener(e->{try{commitVisibleKey(true);status.setText("API key is ready for this session. Choose your points and load GPS.");}catch(FormProblem ex){status.setText(ex.getMessage());}});
         apiKey.addActionListener(e->useKey.doClick());
+        remember.addActionListener(e->{String id=selectedId();if(id==null)return;try{
+            String endpoint=parsedServer().baseUrl();String key=registry.session(id).snapshot().apiKey();
+            if(!remember.isSelected()&&registry.isRemembered(id))registry.setRemembered(id,false);
+            else if(remember.isSelected()&&Objects.equals(endpoint,registry.endpoint())&&key!=null&&!key.isBlank())registry.setRemembered(id,true);
+        }catch(RuntimeException ex){remember.setSelected(registry.isRemembered(id));status.setText("Could not save or forget the API key; check JOSM's credential store");}});
         addSource.addActionListener(e->{SourceSettings row=registry.add("Person "+(registry.rows().size()+1));refreshSources(row.id);clearVisibleKey();});
-        removeSource.addActionListener(e->{String id=selectedId();if(id!=null){registry.remove(id);clearVisibleKey();refreshSources(null);}});
+        removeSource.addActionListener(e->{String id=selectedId();if(id!=null){try{registry.remove(id);clearVisibleKey();refreshSources(null);}catch(RuntimeException ex){status.setText("Could not remove this source or forget its saved key; check JOSM's credential store");}}});
         chooseColor.addActionListener(e->{String id=selectedId();if(id==null)return;SourceSettings row=registry.rows().stream().filter(s->s.id.equals(id)).findFirst().orElseThrow();Color color=JColorChooser.showDialog(this,"GPS source color",Color.decode(row.color));if(color!=null){registry.updateSettings(new SourceSettings(id,row.label,String.format("#%02X%02X%02X",color.getRed(),color.getGreen(),color.getBlue()),row.enabled));refreshSources(id);}});
         loadButton.addActionListener(e->load());
         cancelButton.addActionListener(e->{clearSecretEditors();if(cancelHandler!=null)cancelHandler.run();});
@@ -114,7 +120,8 @@ public final class LoadReferenceDialog extends JPanel {
         addRow(panel,2,new JLabel("Each enabled person/device needs a separate API key. Select one below."),null);
         addRow(panel,3,new JScrollPane(table),null);JPanel sourceButtons=new JPanel(new FlowLayout(FlowLayout.LEFT,4,0));sourceButtons.add(addSource);sourceButtons.add(removeSource);sourceButtons.add(chooseColor);addRow(panel,4,sourceButtons,null);
         addRow(panel,5,keyFor,keyState);JPanel keyLine=new JPanel(new BorderLayout(6,0));keyLine.add(apiKey,BorderLayout.CENTER);keyLine.add(useKey,BorderLayout.EAST);addRow(panel,6,keyLine,null);
-        addRow(panel,7,new JLabel("Paste a key and click Load. Keys stay in memory until JOSM closes."),null);return panel;
+        addRow(panel,7,remember,null);remember.setEnabled(registry.supportsRemembering());
+        addRow(panel,8,new JLabel("<html>JOSM may store remembered keys unencrypted.<br>Use only on a trusted computer. Uncheck Remember to forget the saved key.</html>"),null);return panel;
     }
     private JPanel selectionPanel(){
         JPanel panel=new JPanel(new GridBagLayout());panel.setAlignmentX(Component.LEFT_ALIGNMENT);panel.setBorder(BorderFactory.createTitledBorder("2. Choose GPS history for this map area"));
@@ -129,18 +136,20 @@ public final class LoadReferenceDialog extends JPanel {
     }
     private void updateModeControls(){boolean recent=mode.getSelectedItem()==LoadOptions.Mode.MOST_RECENT;start.setEnabled(!loading&&!recent);end.setEnabled(!loading&&!recent);recentCount.setEnabled(!loading&&recent);}
     private String selectedId(){int row=table.getSelectedRow();return row>=0&&row<registry.rows().size()?registry.rows().get(row).id:null;}
-    private void updateKeyState(){String id=selectedId();keyFor.setText("API key for: "+sourceLabel(id));boolean has=id!=null&&registry.session(id)!=null&&registry.session(id).snapshot().apiKey()!=null;keyState.setText(has?"Key ready for this session":"Key needed");}
+    private void updateKeyState(){String id=selectedId();keyFor.setText("API key for: "+sourceLabel(id));boolean has=id!=null&&registry.session(id)!=null&&registry.session(id).snapshot().apiKey()!=null;keyState.setText(has?(registry.isRemembered(id)?"Remembered key ready":"Key ready for this session"):"Key needed");remember.setSelected(id!=null&&registry.isRemembered(id));}
     private void clearVisibleKey(){char[] chars=apiKey.getPassword();Arrays.fill(chars,'\0');apiKey.setText("");}
     private void refreshSources(String preferred){
         refreshing=true;try{model.fireTableDataChanged();int row=0;for(int i=0;i<registry.rows().size();i++)if(registry.rows().get(i).id.equals(preferred))row=i;if(model.getRowCount()>0)table.setRowSelectionInterval(row,row);}finally{refreshing=false;}updateKeyState();
     }
     private ConnectionSettings parsedServer(){try{return ConnectionSettings.parse(server.getText(),http.isSelected());}catch(RuntimeException ex){throw new FormProblem("Enter a valid Dawarich server address, for example https://gps.example.org.");}}
+    private void applyServer(ConnectionSettings parsed){try{registry.setEndpoint(parsed.baseUrl(),http.isSelected());}catch(RuntimeException ex){throw new FormProblem("Could not change server or forget saved keys; check JOSM's credential store");}}
     private void commitVisibleKey(boolean required){
         char[] chars=apiKey.getPassword();try{
             if(chars.length==0){if(required)throw new FormProblem("Paste an API key for the selected person/device.");return;}
             String key=new String(chars);if(key.isBlank())throw new FormProblem("Paste a non-empty API key for the selected person/device.");String id=selectedId();if(id==null)throw new FormProblem("Select a person/device before entering its API key.");
-            ConnectionSettings parsed=parsedServer();registry.setEndpoint(parsed.baseUrl(),http.isSelected());
-            try{registry.setKey(id,key);}catch(RuntimeException ex){throw new FormProblem("Use a different, valid API key for each person/device.");}
+            boolean keep=remember.isSelected();ConnectionSettings parsed=parsedServer();applyServer(parsed);
+            try{registry.setKey(id,key);}catch(IllegalArgumentException ex){throw new FormProblem("Use a different, valid API key for each person/device.");}catch(RuntimeException ex){throw new FormProblem("Could not update the saved API key; check JOSM's credential store");}
+            try{registry.setRemembered(id,keep);}catch(RuntimeException ex){remember.setSelected(registry.isRemembered(id));throw new FormProblem("Could not save or forget the API key; check JOSM's credential store");}
             clearVisibleKey();refreshSources(id);
         }finally{Arrays.fill(chars,'\0');}
     }
@@ -153,7 +162,7 @@ public final class LoadReferenceDialog extends JPanel {
     public void validateAndCommit(){
         if(table.isEditing()&&!table.getCellEditor().stopCellEditing())throw new FormProblem("Finish editing the person/device settings.");
         LoadOptions options=loadOptions();if(options.mode()==LoadOptions.Mode.DATE_RANGE){LocalDate first,last;try{first=LocalDate.parse(start.getText());last=LocalDate.parse(end.getText());}catch(RuntimeException ex){throw new FormProblem("Enter dates in YYYY-MM-DD format.");}if(last.isBefore(first)||last.isAfter(LocalDate.now()))throw new FormProblem("Choose an end date on or after the start date, and not in the future.");}
-        ConnectionSettings parsed=parsedServer();registry.setEndpoint(parsed.baseUrl(),http.isSelected());commitVisibleKey(false);
+        ConnectionSettings parsed=parsedServer();applyServer(parsed);commitVisibleKey(false);
         boolean enabled=false;for(SourceSettings row:registry.rows())if(row.enabled){enabled=true;if(Objects.toString(registry.session(row.id).snapshot().apiKey(),"").isBlank())throw new FormProblem("Paste an API key for each enabled person/device, or disable the ones you do not need.");}
         if(!enabled)throw new FormProblem("Enable at least one person/device.");updateKeyState();
     }
@@ -168,7 +177,7 @@ public final class LoadReferenceDialog extends JPanel {
     public void clearSecretEditors(){clearVisibleKey();if(table.isEditing()&&table.getEditorComponent() instanceof JPasswordField password){char[] chars=password.getPassword();Arrays.fill(chars,'\0');password.setText("");table.getCellEditor().cancelCellEditing();}}
     public void setLoading(boolean active){
         boolean changed=loading!=active;loading=active;loadButton.setEnabled(!active&&loadHandler!=null);cancelButton.setEnabled(active);
-        for(Component component:new Component[]{server,apiKey,useKey,table,mode,totalBudget,http,advancedToggle,addSource,removeSource,chooseColor})component.setEnabled(!active);updateModeControls();
+        for(Component component:new Component[]{server,apiKey,useKey,table,mode,totalBudget,http,advancedToggle,addSource,removeSource,chooseColor})component.setEnabled(!active);remember.setEnabled(!active&&registry.supportsRemembering());updateModeControls();
         if(changed&&active){progressBar.setVisible(true);progressBar.setIndeterminate(true);progressLabel.setText("Waiting for GPS data… elapsed time and received bytes will appear here.");}
         if(!active){progressBar.setIndeterminate(false);progressBar.setVisible(false);progressLabel.setText(" ");}
     }
@@ -182,7 +191,7 @@ public final class LoadReferenceDialog extends JPanel {
     public JTable sourceTable(){return table;}public JButton loadButton(){return loadButton;}public JButton closeButton(){return closeButton;}public JButton cancelButton(){return cancelButton;}public JButton applyKeyButton(){return useKey;}
     public JTextField startDateField(){return start;}public JTextField endDateField(){return end;}public JTextField serverField(){return server;}public JCheckBox httpCheckBox(){return http;}
     public JComboBox<LoadOptions.Mode> modeSelector(){return mode;}public JSpinner recentCountSpinner(){return recentCount;}public JSpinner totalBudgetSpinner(){return totalBudget;}public JToggleButton advancedToggle(){return advancedToggle;}
-    public JPasswordField apiKeyField(){return apiKey;}public JLabel statusLabel(){return status;}public JProgressBar progressBar(){return progressBar;}public JLabel progressLabel(){return progressLabel;}
+    public JCheckBox rememberKeyCheckBox(){return remember;}public JPasswordField apiKeyField(){return apiKey;}public JLabel statusLabel(){return status;}public JProgressBar progressBar(){return progressBar;}public JLabel progressLabel(){return progressLabel;}
     String sourceLabel(String id){return registry.rows().stream().filter(row->row.id.equals(id)).map(row->row.label).findFirst().orElse("selected person/device");}
     public void setLoadHandler(Consumer<LoadRequest> handler){loadHandler=Objects.requireNonNull(handler);loadButton.setEnabled(!loading);}public void setCancelHandler(Runnable handler){cancelHandler=Objects.requireNonNull(handler);}public void setCloseHandler(Runnable handler){closeHandler=Objects.requireNonNull(handler);}
     private final class SourceModel extends AbstractTableModel {
@@ -190,6 +199,6 @@ public final class LoadReferenceDialog extends JPanel {
         public int getRowCount(){return registry.rows().size();}public int getColumnCount(){return names.length;}public String getColumnName(int column){return names[column];}public Class<?> getColumnClass(int column){return column==0||column==2?Boolean.class:String.class;}
         public Object getValueAt(int row,int column){SourceSettings source=registry.rows().get(row);return switch(column){case 0->source.enabled;case 1->source.label;case 2->!Objects.toString(registry.session(source.id).snapshot().apiKey(),"").isBlank();default->source.color;};}
         public boolean isCellEditable(int row,int column){return !loading&&column<3;}
-        public void setValueAt(Object value,int row,int column){SourceSettings source=registry.rows().get(row);switch(column){case 0->registry.setEnabled(source.id,Boolean.TRUE.equals(value));case 1->registry.updateSettings(new SourceSettings(source.id,Objects.toString(value),source.color,source.enabled));case 2->{String key=Objects.toString(value,"");if(!key.isEmpty()){ConnectionSettings parsed=parsedServer();registry.setEndpoint(parsed.baseUrl(),http.isSelected());try{registry.setKey(source.id,key);}catch(RuntimeException ex){throw new FormProblem("Use a different, valid API key for each person/device.");}refreshSources(source.id);return;}}default->{}}fireTableRowsUpdated(row,row);updateKeyState();}
+        public void setValueAt(Object value,int row,int column){SourceSettings source=registry.rows().get(row);switch(column){case 0->registry.setEnabled(source.id,Boolean.TRUE.equals(value));case 1->registry.updateSettings(new SourceSettings(source.id,Objects.toString(value),source.color,source.enabled));case 2->{String key=Objects.toString(value,"");if(!key.isEmpty()){boolean keep=Objects.equals(source.id,selectedId())?remember.isSelected():registry.isRemembered(source.id);ConnectionSettings parsed=parsedServer();applyServer(parsed);try{registry.setKey(source.id,key);registry.setRemembered(source.id,keep);}catch(IllegalArgumentException ex){throw new FormProblem("Use a different, valid API key for each person/device.");}catch(RuntimeException ex){throw new FormProblem("Could not update the saved API key; check JOSM's credential store");}refreshSources(source.id);return;}}default->{}}fireTableRowsUpdated(row,row);updateKeyState();}
     }
 }

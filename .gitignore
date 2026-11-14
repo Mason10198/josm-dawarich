@@ -2,4 +2,6 @@ build/
 dist/
 deps/
 *.jar
+__pycache__/
+*.pyc
 !LICENSE
