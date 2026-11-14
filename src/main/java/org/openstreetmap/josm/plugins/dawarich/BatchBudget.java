@@ -13,6 +13,8 @@ public final class BatchBudget {
     private final int maxRequests, maxResponseBytes;
     private final long maxBytes, deadlineNanos;
     private final AtomicLong requests = new AtomicLong(), bytes = new AtomicLong();
+    private final AtomicLong selectedPoints = new AtomicLong();
+    private final long startedNanos = System.nanoTime();
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private CompletableFuture<?> active;
 
@@ -44,4 +46,9 @@ public final class BatchBudget {
     public synchronized void unregister(CompletableFuture<?> future) { if(active==future) active=null; }
     public synchronized void cancel(){cancelled.set(true); if(active!=null) active.cancel(true);}
     public boolean isCancelled(){return cancelled.get();}
+    public long requestCount(){return requests.get();}
+    public long downloadedBytes(){return bytes.get();}
+    public long selectedPointCount(){return selectedPoints.get();}
+    public long elapsedMillis(){return java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(Math.max(0,System.nanoTime()-startedNanos));}
+    public void setSelectedPointCount(long count){if(count<0||count>LoadOptions.MAX_TOTAL_POINTS)throw new IllegalArgumentException("Invalid selected point count");selectedPoints.set(count);}
 }

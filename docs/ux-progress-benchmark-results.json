@@ -1,0 +1,461 @@
+{
+  "method": "Two fresh JVM runs per version, alternating released v0.2.0 and working v0.3.0 candidate. Synthetic local HTTP fixture. No Swing timer in coordinator benchmark. Not a statistically powered comparison; includes host load and JIT noise.",
+  "runs": [
+    {
+      "label": "v0.2.0",
+      "data": {
+        "method": "single measured run per configuration; production JDK HttpClient -> DawarichClient -> TimeWindowFetcher -> LoadReferenceTask -> MainLayerManager; 20 production-painter frames",
+        "render_caveat": "synthetic painter seam; not full JOSM MapView/viewport frame-rate",
+        "peak_heap_pool_sum_bytes": 392292088,
+        "cancel_header_ms": 3,
+        "cancel_body_ms": 0,
+        "plugin_jar_bytes": 86317,
+        "load_ms": [
+          873,
+          237,
+          235,
+          96,
+          98,
+          160,
+          690,
+          714,
+          541
+        ],
+        "results": [
+          {
+            "points": 1000,
+            "sources": 1,
+            "load_ms": 873,
+            "used_heap_delta_bytes": 8057400,
+            "painter_20_frames_ms": 39,
+            "painted_point_visits": 20000,
+            "http_requests": 1,
+            "per_source_points": 1000
+          },
+          {
+            "points": 1000,
+            "sources": 2,
+            "load_ms": 237,
+            "used_heap_delta_bytes": 383576,
+            "painter_20_frames_ms": 19,
+            "painted_point_visits": 20000,
+            "http_requests": 2,
+            "per_source_points": 500
+          },
+          {
+            "points": 1000,
+            "sources": 4,
+            "load_ms": 235,
+            "used_heap_delta_bytes": 1380576,
+            "painter_20_frames_ms": 27,
+            "painted_point_visits": 20000,
+            "http_requests": 4,
+            "per_source_points": 250
+          },
+          {
+            "points": 10000,
+            "sources": 1,
+            "load_ms": 96,
+            "used_heap_delta_bytes": 3780424,
+            "painter_20_frames_ms": 128,
+            "painted_point_visits": 200000,
+            "http_requests": 1,
+            "per_source_points": 10000
+          },
+          {
+            "points": 10000,
+            "sources": 2,
+            "load_ms": 98,
+            "used_heap_delta_bytes": 4792440,
+            "painter_20_frames_ms": 151,
+            "painted_point_visits": 200000,
+            "http_requests": 2,
+            "per_source_points": 5000
+          },
+          {
+            "points": 10000,
+            "sources": 4,
+            "load_ms": 160,
+            "used_heap_delta_bytes": 1638256,
+            "painter_20_frames_ms": 186,
+            "painted_point_visits": 200000,
+            "http_requests": 4,
+            "per_source_points": 2500
+          },
+          {
+            "points": 50000,
+            "sources": 1,
+            "load_ms": 690,
+            "used_heap_delta_bytes": 5487064,
+            "painter_20_frames_ms": 705,
+            "painted_point_visits": 1000000,
+            "http_requests": 15,
+            "per_source_points": 50000
+          },
+          {
+            "points": 50000,
+            "sources": 2,
+            "load_ms": 714,
+            "used_heap_delta_bytes": 6404192,
+            "painter_20_frames_ms": 760,
+            "painted_point_visits": 1000000,
+            "http_requests": 14,
+            "per_source_points": 25000
+          },
+          {
+            "points": 50000,
+            "sources": 4,
+            "load_ms": 541,
+            "used_heap_delta_bytes": 10051688,
+            "painter_20_frames_ms": 735,
+            "painted_point_visits": 1000000,
+            "http_requests": 12,
+            "per_source_points": 12500
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0.3.0-candidate",
+      "data": {
+        "method": "single measured run per configuration; production JDK HttpClient -> DawarichClient -> TimeWindowFetcher -> LoadReferenceTask -> MainLayerManager; 20 production-painter frames",
+        "render_caveat": "synthetic painter seam; not full JOSM MapView/viewport frame-rate",
+        "peak_heap_pool_sum_bytes": 370628720,
+        "cancel_header_ms": 5,
+        "cancel_body_ms": 0,
+        "plugin_jar_bytes": 97322,
+        "load_ms": [
+          667,
+          159,
+          259,
+          111,
+          167,
+          224,
+          930,
+          879,
+          524
+        ],
+        "results": [
+          {
+            "points": 1000,
+            "sources": 1,
+            "load_ms": 667,
+            "used_heap_delta_bytes": 7932296,
+            "painter_20_frames_ms": 34,
+            "painted_point_visits": 20000,
+            "http_requests": 1,
+            "per_source_points": 1000
+          },
+          {
+            "points": 1000,
+            "sources": 2,
+            "load_ms": 159,
+            "used_heap_delta_bytes": 459112,
+            "painter_20_frames_ms": 20,
+            "painted_point_visits": 20000,
+            "http_requests": 2,
+            "per_source_points": 500
+          },
+          {
+            "points": 1000,
+            "sources": 4,
+            "load_ms": 259,
+            "used_heap_delta_bytes": 1779504,
+            "painter_20_frames_ms": 41,
+            "painted_point_visits": 20000,
+            "http_requests": 4,
+            "per_source_points": 250
+          },
+          {
+            "points": 10000,
+            "sources": 1,
+            "load_ms": 111,
+            "used_heap_delta_bytes": 3842152,
+            "painter_20_frames_ms": 178,
+            "painted_point_visits": 200000,
+            "http_requests": 1,
+            "per_source_points": 10000
+          },
+          {
+            "points": 10000,
+            "sources": 2,
+            "load_ms": 167,
+            "used_heap_delta_bytes": 4679176,
+            "painter_20_frames_ms": 269,
+            "painted_point_visits": 200000,
+            "http_requests": 2,
+            "per_source_points": 5000
+          },
+          {
+            "points": 10000,
+            "sources": 4,
+            "load_ms": 224,
+            "used_heap_delta_bytes": 1628816,
+            "painter_20_frames_ms": 149,
+            "painted_point_visits": 200000,
+            "http_requests": 4,
+            "per_source_points": 2500
+          },
+          {
+            "points": 50000,
+            "sources": 1,
+            "load_ms": 930,
+            "used_heap_delta_bytes": 6518928,
+            "painter_20_frames_ms": 652,
+            "painted_point_visits": 1000000,
+            "http_requests": 15,
+            "per_source_points": 50000
+          },
+          {
+            "points": 50000,
+            "sources": 2,
+            "load_ms": 879,
+            "used_heap_delta_bytes": 9340888,
+            "painter_20_frames_ms": 781,
+            "painted_point_visits": 1000000,
+            "http_requests": 14,
+            "per_source_points": 25000
+          },
+          {
+            "points": 50000,
+            "sources": 4,
+            "load_ms": 524,
+            "used_heap_delta_bytes": 9960520,
+            "painter_20_frames_ms": 700,
+            "painted_point_visits": 1000000,
+            "http_requests": 12,
+            "per_source_points": 12500
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0.2.0",
+      "data": {
+        "method": "single measured run per configuration; production JDK HttpClient -> DawarichClient -> TimeWindowFetcher -> LoadReferenceTask -> MainLayerManager; 20 production-painter frames",
+        "render_caveat": "synthetic painter seam; not full JOSM MapView/viewport frame-rate",
+        "peak_heap_pool_sum_bytes": 371733648,
+        "cancel_header_ms": 11,
+        "cancel_body_ms": 1,
+        "plugin_jar_bytes": 86317,
+        "load_ms": [
+          585,
+          126,
+          193,
+          72,
+          110,
+          176,
+          732,
+          708,
+          734
+        ],
+        "results": [
+          {
+            "points": 1000,
+            "sources": 1,
+            "load_ms": 585,
+            "used_heap_delta_bytes": 7875832,
+            "painter_20_frames_ms": 43,
+            "painted_point_visits": 20000,
+            "http_requests": 1,
+            "per_source_points": 1000
+          },
+          {
+            "points": 1000,
+            "sources": 2,
+            "load_ms": 126,
+            "used_heap_delta_bytes": 940424,
+            "painter_20_frames_ms": 32,
+            "painted_point_visits": 20000,
+            "http_requests": 2,
+            "per_source_points": 500
+          },
+          {
+            "points": 1000,
+            "sources": 4,
+            "load_ms": 193,
+            "used_heap_delta_bytes": 1800312,
+            "painter_20_frames_ms": 25,
+            "painted_point_visits": 20000,
+            "http_requests": 4,
+            "per_source_points": 250
+          },
+          {
+            "points": 10000,
+            "sources": 1,
+            "load_ms": 72,
+            "used_heap_delta_bytes": 3862208,
+            "painter_20_frames_ms": 168,
+            "painted_point_visits": 200000,
+            "http_requests": 1,
+            "per_source_points": 10000
+          },
+          {
+            "points": 10000,
+            "sources": 2,
+            "load_ms": 110,
+            "used_heap_delta_bytes": 4683608,
+            "painter_20_frames_ms": 163,
+            "painted_point_visits": 200000,
+            "http_requests": 2,
+            "per_source_points": 5000
+          },
+          {
+            "points": 10000,
+            "sources": 4,
+            "load_ms": 176,
+            "used_heap_delta_bytes": 1667952,
+            "painter_20_frames_ms": 148,
+            "painted_point_visits": 200000,
+            "http_requests": 4,
+            "per_source_points": 2500
+          },
+          {
+            "points": 50000,
+            "sources": 1,
+            "load_ms": 732,
+            "used_heap_delta_bytes": 5864144,
+            "painter_20_frames_ms": 671,
+            "painted_point_visits": 1000000,
+            "http_requests": 15,
+            "per_source_points": 50000
+          },
+          {
+            "points": 50000,
+            "sources": 2,
+            "load_ms": 708,
+            "used_heap_delta_bytes": 9927144,
+            "painter_20_frames_ms": 801,
+            "painted_point_visits": 1000000,
+            "http_requests": 14,
+            "per_source_points": 25000
+          },
+          {
+            "points": 50000,
+            "sources": 4,
+            "load_ms": 734,
+            "used_heap_delta_bytes": 10128544,
+            "painter_20_frames_ms": 711,
+            "painted_point_visits": 1000000,
+            "http_requests": 12,
+            "per_source_points": 12500
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0.3.0-candidate",
+      "data": {
+        "method": "single measured run per configuration; production JDK HttpClient -> DawarichClient -> TimeWindowFetcher -> LoadReferenceTask -> MainLayerManager; 20 production-painter frames",
+        "render_caveat": "synthetic painter seam; not full JOSM MapView/viewport frame-rate",
+        "peak_heap_pool_sum_bytes": 367996384,
+        "cancel_header_ms": 2,
+        "cancel_body_ms": 0,
+        "plugin_jar_bytes": 97322,
+        "load_ms": [
+          817,
+          215,
+          308,
+          110,
+          125,
+          210,
+          951,
+          696,
+          519
+        ],
+        "results": [
+          {
+            "points": 1000,
+            "sources": 1,
+            "load_ms": 817,
+            "used_heap_delta_bytes": 7878056,
+            "painter_20_frames_ms": 32,
+            "painted_point_visits": 20000,
+            "http_requests": 1,
+            "per_source_points": 1000
+          },
+          {
+            "points": 1000,
+            "sources": 2,
+            "load_ms": 215,
+            "used_heap_delta_bytes": 748024,
+            "painter_20_frames_ms": 29,
+            "painted_point_visits": 20000,
+            "http_requests": 2,
+            "per_source_points": 500
+          },
+          {
+            "points": 1000,
+            "sources": 4,
+            "load_ms": 308,
+            "used_heap_delta_bytes": 1487200,
+            "painter_20_frames_ms": 18,
+            "painted_point_visits": 20000,
+            "http_requests": 4,
+            "per_source_points": 250
+          },
+          {
+            "points": 10000,
+            "sources": 1,
+            "load_ms": 110,
+            "used_heap_delta_bytes": 3781104,
+            "painter_20_frames_ms": 166,
+            "painted_point_visits": 200000,
+            "http_requests": 1,
+            "per_source_points": 10000
+          },
+          {
+            "points": 10000,
+            "sources": 2,
+            "load_ms": 125,
+            "used_heap_delta_bytes": 4882424,
+            "painter_20_frames_ms": 152,
+            "painted_point_visits": 200000,
+            "http_requests": 2,
+            "per_source_points": 5000
+          },
+          {
+            "points": 10000,
+            "sources": 4,
+            "load_ms": 210,
+            "used_heap_delta_bytes": 960264,
+            "painter_20_frames_ms": 173,
+            "painted_point_visits": 200000,
+            "http_requests": 4,
+            "per_source_points": 2500
+          },
+          {
+            "points": 50000,
+            "sources": 1,
+            "load_ms": 951,
+            "used_heap_delta_bytes": 5906640,
+            "painter_20_frames_ms": 651,
+            "painted_point_visits": 1000000,
+            "http_requests": 15,
+            "per_source_points": 50000
+          },
+          {
+            "points": 50000,
+            "sources": 2,
+            "load_ms": 696,
+            "used_heap_delta_bytes": 6423016,
+            "painter_20_frames_ms": 646,
+            "painted_point_visits": 1000000,
+            "http_requests": 14,
+            "per_source_points": 25000
+          },
+          {
+            "points": 50000,
+            "sources": 4,
+            "load_ms": 519,
+            "used_heap_delta_bytes": 10011128,
+            "painter_20_frames_ms": 735,
+            "painted_point_visits": 1000000,
+            "http_requests": 12,
+            "per_source_points": 12500
+          }
+        ]
+      }
+    }
+  ]
+}

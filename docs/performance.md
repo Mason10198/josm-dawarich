@@ -34,6 +34,12 @@ Machine-readable measurements are in [recent-mapview-results.json](recent-mapvie
 
 Higher counts render correctly but do **not** meet the earlier <100 ms/frame target consistently; 250,000 points is noticeably slower. This supports an opt-in adjustable ceiling rather than claiming the largest budget is universally fast. A coordinator regression separately publishes 77,222 synthetic observations with a 100,000-point budget, proving that the higher setting is enforced end-to-end rather than only accepted by the dialog.
 
+## Guided UI / live progress acceptance (v0.3.0)
+
+The packaged GUI acceptance pauses an actual partial HTTP response. It verifies received-byte/elapsed labels change before the page completes, no partial dataset replaces an old layer, a UI-thread ping completes within 500 ms, only the expected request is issued, and the timer stops on completion. A second stalled request exercises Close cancellation, editor wiping, retained layers, idle reopen, and no automatic download. These are bounded synthetic checks, not a live-server latency promise.
+
+Alternating released-v0.2.0/current-candidate HTTP benchmark runs are retained in `ux-progress-benchmark-results.json`: two fresh JVMs per version. All nine configurations preserve the exact original point oracle and the same HTTP request counts. Timings are noisy: at 50,000 points/one source the candidate took 930/951 ms versus 690/732 ms for the release; other configurations overlap or reverse the ordering. This is not sufficient to claim a speedup or rule out a regression. It excludes the Swing timer and real network latency. Production rendering code is unchanged; progress uses constant-size snapshots and accepted-page counter updates, not per-observation callbacks or additional requests. Use actual MapView and paused-response checks alongside these results rather than treating a local microbenchmark as end-user throughput.
+
 ## Recorded run
 
 Environment: Linux 7.0.14-26-pve (glibc 2.41), Microsoft OpenJDK 17.0.21.0.2, AMD Ryzen 7 PRO 8845HS, 2 visible logical CPUs. The produced plugin jar was 73,369 bytes (52 entries; thin, no bundled dependency jars).

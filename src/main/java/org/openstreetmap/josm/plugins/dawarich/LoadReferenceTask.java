@@ -24,6 +24,8 @@ public final class LoadReferenceTask implements LayerManager.LayerChangeListener
     private final SourceRegistry registry; private final MainLayerManager layers; private final SourceRegistry.ChangeListener registryListener=this::registryChanged; private final Executor executor; private final SourceLoader loader;
     private final AtomicBoolean active=new AtomicBoolean(); private final Map<String,DawarichLayer> owned=new LinkedHashMap<>(); private final Map<String,Long> epochs=new HashMap<>();
     private volatile BatchBudget budget; private volatile boolean disposed; private volatile Consumer<BatchResult> listener=r->{};
+    private volatile ProgressContext progressContext;
+    private record ProgressContext(String sourceId,int sourceIndex,int sourceCount,int requestedPoints,BatchBudget budget) { }
     public LoadReferenceTask(SourceRegistry r,MainLayerManager m,Executor e){this(r,m,e,(server,id,key,q,n,b)->{
         DawarichClient client=new DawarichClient(ConnectionSettings.parse(server,server.startsWith("http://")));
         return q.options().mode()==LoadOptions.Mode.MOST_RECENT
@@ -32,6 +34,7 @@ public final class LoadReferenceTask implements LayerManager.LayerChangeListener
     });}
     public LoadReferenceTask(SourceRegistry r,MainLayerManager m,Executor e,SourceLoader l){registry=Objects.requireNonNull(r);layers=Objects.requireNonNull(m);executor=Objects.requireNonNull(e);loader=Objects.requireNonNull(l);layers.addLayerChangeListener(this);registry.addChangeListener(registryListener);}
     public void setListener(Consumer<BatchResult> l){listener=Objects.requireNonNull(l);} public boolean isLoading(){return active.get();}
+    public LoadProgress progress(){ProgressContext c=progressContext;BatchBudget b=budget;if(c==null||b==null||c.budget()!=b||disposed)return null;return new LoadProgress(c.sourceId(),c.sourceIndex(),c.sourceCount(),b.requestCount(),b.downloadedBytes(),b.selectedPointCount(),c.requestedPoints(),b.elapsedMillis());}
     public synchronized Map<String,DawarichLayer> layersSnapshot(){return Map.copyOf(owned);}
     public CompletableFuture<BatchResult> start(QueryBounds query){
         Objects.requireNonNull(query);if(disposed||!active.compareAndSet(false,true))throw new IllegalStateException("Load already active or disposed");
@@ -47,15 +50,19 @@ public final class LoadReferenceTask implements LayerManager.LayerChangeListener
         List<SourceResult> out=new ArrayList<>();Set<String> overlaps=new HashSet<>();boolean stop=false;
         try {
             for(SourceSettings s:selected){
+                int sourceIndex=out.size()+1;
                 if(b.isCancelled()){out.add(result(s,Status.CANCELLED,"Request cancelled",false));continue;}
                 SourceSession.KeySnapshot k=keys.get(s.id);
                 if(k==null){out.add(result(s,Status.FAILED,"API key is not configured",false));continue;}
+                int requested=q.options().mode()==LoadOptions.Mode.MOST_RECENT?q.options().recentPointsPerSource():0;
+                b.setSelectedPointCount(0);progressContext=new ProgressContext(s.id,sourceIndex,selected.size(),requested,b);
                 notifyProgress(new BatchResult(Status.LOADING,outWithPending(out,selected,s),countOwned(),overlaps,quota));
                 try{
                     if(q.options().mode()==LoadOptions.Mode.MOST_RECENT&&q.options().recentPointsPerSource()>quota)
                         throw new DawarichException(DawarichException.Category.CAPACITY,"Recent count exceeds this source's share; reduce the count or raise the total point budget");
                     if(quota==0)throw new DawarichException(DawarichException.Category.CAPACITY,"Point limit exceeded; narrow the area or dates, or raise the total point budget");
                     ReferenceDataset d=loader.fetch(server,s.id,k.apiKey(),q,quota,b);b.check();
+                    b.setSelectedPointCount(d.points().size());
                     if(!Objects.equals(d.serverIdentity(),server)||!Objects.equals(d.sourceId(),s.id)||!sameQuery(d.query(),q))throw new DawarichException(DawarichException.Category.PROTOCOL,"Source returned mismatched dataset identity");
                     if(d.points().size()>quota)throw new DawarichException(DawarichException.Category.CAPACITY,"Source exceeds its fair point capacity");
                     if(q.options().mode()==LoadOptions.Mode.MOST_RECENT&&d.points().size()>q.options().recentPointsPerSource())
@@ -71,7 +78,7 @@ public final class LoadReferenceTask implements LayerManager.LayerChangeListener
             BatchResult finalResult=new BatchResult(status,out,countOwned(),overlaps,quota);
             runEdt(()->{budget=null;active.set(false);try{listener.accept(finalResult);}catch(RuntimeException ignored){}});
             f.complete(finalResult);
-        }catch(Throwable fatal){f.completeExceptionally(fatal);}finally{if(budget==b){budget=null;active.set(false);}}
+        }catch(Throwable fatal){f.completeExceptionally(fatal);}finally{if(progressContext!=null&&progressContext.budget()==b)progressContext=null;if(budget==b){budget=null;active.set(false);}}
     }
     private static boolean sameQuery(QueryBounds a,QueryBounds b){return Double.compare(a.minLat(),b.minLat())==0&&Double.compare(a.maxLat(),b.maxLat())==0&&Double.compare(a.minLon(),b.minLon())==0&&Double.compare(a.maxLon(),b.maxLon())==0&&a.startInclusive().equals(b.startInclusive())&&a.endInclusive().equals(b.endInclusive())&&a.zone().equals(b.zone())&&a.options().equals(b.options());}
     private List<SourceResult> outWithPending(List<SourceResult> out,List<SourceSettings> all,SourceSettings current){List<SourceResult> v=new ArrayList<>(out);v.add(result(current,Status.LOADING,"Loading",false));for(SourceSettings s:all.subList(v.size(),all.size()))v.add(result(s,Status.IDLE,"Waiting",false));return v;}
@@ -96,6 +103,6 @@ public final class LoadReferenceTask implements LayerManager.LayerChangeListener
     private void removeOwned(String id){runEdt(()->{synchronized(this){DawarichLayer l=owned.remove(id);if(l!=null&&layers.containsLayer(l))layers.removeLayer(l);}});}
     public void cancel(){BatchBudget b=budget;if(b!=null)b.cancel();} public void layerAdded(LayerManager.LayerAddEvent e){}
     public void layerRemoving(LayerManager.LayerRemoveEvent e){if(e.getRemovedLayer() instanceof DawarichLayer d)synchronized(this){if(owned.get(d.sourceId())==d){owned.remove(d.sourceId());epochs.merge(d.sourceId(),1L,Long::sum);}}} public void layerOrderChanged(LayerManager.LayerOrderChangeEvent e){}
-    public void close(){synchronized(this){if(disposed)return;disposed=true;}cancel();registry.removeChangeListener(registryListener);layers.removeLayerChangeListener(this);registry.clearKeys();runEdt(()->{synchronized(this){for(DawarichLayer l:new ArrayList<>(owned.values()))if(layers.containsLayer(l))layers.removeLayer(l);owned.clear();}});}
+    public void close(){synchronized(this){if(disposed)return;disposed=true;}progressContext=null;cancel();registry.removeChangeListener(registryListener);layers.removeLayerChangeListener(this);registry.clearKeys();runEdt(()->{synchronized(this){for(DawarichLayer l:new ArrayList<>(owned.values()))if(layers.containsLayer(l))layers.removeLayer(l);owned.clear();}});}
     private static void runEdt(Runnable r){try{if(SwingUtilities.isEventDispatchThread())r.run();else SwingUtilities.invokeAndWait(r);}catch(InterruptedException x){Thread.currentThread().interrupt();throw new IllegalStateException(x);}catch(InvocationTargetException x){throw new IllegalStateException(x.getCause());}}
 }

@@ -2,6 +2,16 @@
 
 Published artifacts and checksums are available from the GitHub releases page.
 
+## v0.3.0
+
+- Guide first-time users through imagery setup, GPS-source connection, point selection, and comparison. Add a discoverable Imagery-menu command while retaining the GPS command.
+- Provide direct selected-source password entry, source-scoped session keys, field-specific safe validation, readable result summaries, and scrollable setup with fixed action buttons.
+- Recommend recent-point mode only for genuinely new profiles. Preserve existing saved choices; move resource limits and unencrypted HTTP into Advanced settings.
+- Show live received bytes, request count, elapsed time, selected points, source position, and recent target using a coalesced 200 ms UI timer. Sampling makes no extra network requests and introduces no per-point UI callbacks.
+- Separate Stop download from Close, clear transient password copies, stop progress sampling on completion/cancel/hide/dispose, and retain old layers until successful complete replacement.
+- Extend packaged acceptance with direct password entry, actual Imagery-menu discoverability, a paused partial response, responsiveness/progress checks before completion, and stalled-request close/cancel/reopen cleanup.
+- Keep raw original observations, bounded retrieval, independent credentials, and read-only layers unchanged. Density views, accuracy filtering, and automatic load-on-pan remain proposals, not enabled features; see docs/alignment-tools.md.
+
 ## v0.2.0
 
 - Add Most recent points mode: up to N original observations per authorized source inside the frozen viewport, ordered by recorded timestamp across all history; date fields are ignored in this mode.

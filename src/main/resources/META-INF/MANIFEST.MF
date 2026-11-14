@@ -1,10 +1,10 @@
 Manifest-Version: 1.0
 Plugin-Id: dawarich
 Plugin-Class: org.openstreetmap.josm.plugins.dawarich.DawarichPlugin
-Plugin-Version: 0.2.0
+Plugin-Version: 0.3.0
 Plugin-Mainversion: 19678
 Plugin-Minimum-Java-Version: 17
-Plugin-Description: Thin private GPS reference connector
+Plugin-Description: Check imagery alignment with private Dawarich GPS
 Plugin-Link: https://github.com/Mason10198/josm-dawarich
 Plugin-Icon: images/dawarich.svg
 Plugin-Author: Mason10198 and contributors

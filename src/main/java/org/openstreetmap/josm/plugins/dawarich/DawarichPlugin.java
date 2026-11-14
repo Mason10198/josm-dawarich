@@ -15,13 +15,16 @@ public final class DawarichPlugin extends Plugin {
     private final LoadReferenceTask task;
     private final LoadReferenceAction action;
     private final JMenuItem menuItem;
+    private final JMenuItem imageryMenuItem;
     public DawarichPlugin(PluginInformation info) {
         super(info);
         ConnectionPreferences.Settings settings=ConnectionPreferences.load(Config.getPref());
-        registry=settings.registry(); if(registry.rows().isEmpty())registry.add("Dawarich source");
+        registry=settings.registry(); if(registry.rows().isEmpty())registry.add("My GPS data");
         task=new LoadReferenceTask(registry,MainApplication.getLayerManager(),MainApplication.worker);
         action=new LoadReferenceAction(registry,task,settings.startDate(),settings.endDate()); action.panel().setLoadOptions(settings.options());
         menuItem=MainMenu.add(MainApplication.getMenu().gpsMenu,action);
+        imageryMenuItem=MainMenu.add(MainApplication.getMenu().imageryMenu,action);
+        imageryMenuItem.setText("Check alignment with Dawarich GPS…");
         task.setListener(result->action.showResult(result));
         Lifecycle.setShutdownSequence(chain(this::destroy,Lifecycle.getShutdownSequence()));
     }
@@ -29,6 +32,6 @@ public final class DawarichPlugin extends Plugin {
     public void destroy(){
         try { LoadReferenceDialog p=action.panel(); LocalDate a=LocalDate.parse(p.startDateField().getText()),b=LocalDate.parse(p.endDateField().getText()); if(b.isBefore(a)||b.isAfter(LocalDate.now()))throw new IllegalArgumentException(); ConnectionPreferences.save(Config.getPref(),registry,a,b,p.loadOptions()); } catch(RuntimeException ignored) { try { LoadReferenceDialog p=action.panel(); var saved=ConnectionPreferences.load(Config.getPref()); ConnectionPreferences.save(Config.getPref(),registry,saved.startDate(),saved.endDate(),p.loadOptions()); }
         catch(RuntimeException fallbackFailure) { /* retain safe saved date metadata */ } }
-        action.dispose();task.close();MainApplication.getMenu().gpsMenu.remove(menuItem);
+        action.dispose();task.close();MainApplication.getMenu().gpsMenu.remove(menuItem);MainApplication.getMenu().imageryMenu.remove(imageryMenuItem);
     }
 }

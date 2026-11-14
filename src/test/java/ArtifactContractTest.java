@@ -12,10 +12,10 @@ class ArtifactContractTest {
       var m=jar.getManifest().getMainAttributes();
       assertEquals("dawarich",m.getValue("Plugin-Id"));
       assertEquals("org.openstreetmap.josm.plugins.dawarich.DawarichPlugin",m.getValue("Plugin-Class"));
-      assertEquals("0.2.0",m.getValue("Plugin-Version"));
+      assertEquals("0.3.0",m.getValue("Plugin-Version"));
       assertEquals("19678",m.getValue("Plugin-Mainversion"));
       assertEquals("17",m.getValue("Plugin-Minimum-Java-Version"));
-      assertEquals("Thin private GPS reference connector",m.getValue("Plugin-Description"));
+      assertEquals("Check imagery alignment with private Dawarich GPS",m.getValue("Plugin-Description"));
       assertEquals("https://github.com/Mason10198/josm-dawarich",m.getValue("Plugin-Link"));
       assertEquals("images/dawarich.svg",m.getValue("Plugin-Icon"));
       assertNotNull(jar.getEntry("org/openstreetmap/josm/plugins/dawarich/DawarichPlugin.class"));
