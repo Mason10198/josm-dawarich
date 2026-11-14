@@ -31,6 +31,8 @@ def authority_record(display, cookie):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--renderer", action="store_true", help="also measure actual 50k-point MapView pan/zoom paints")
+    parser.add_argument("--points", type=int, choices=(50000, 100000, 250000), default=50000,
+                        help="aggregate synthetic points for the optional renderer measurement")
     args = parser.parse_args()
     if not (ROOT / 'dist/dawarich.jar').is_file():
         raise SystemExit('Build dist/dawarich.jar before running GUI smoke.')
@@ -82,6 +84,7 @@ def main():
             java = subprocess.Popen([
                 JAVA, '-Djosm.home=' + str(home), '-Dsmoke.out=' + str(base),
                 '-Dsmoke.render=' + str(args.renderer).lower(),
+                '-Dsmoke.points=' + str(args.points),
                 '-cp', str(JOSM), str(ROOT / 'test/gui/JosmGuiSmoke.java')], cwd=base,
                 env=dict(os.environ, DISPLAY='127.0.0.1:' + str(display), XAUTHORITY=str(auth)),
                 stdout=jlog, stderr=subprocess.STDOUT, start_new_session=True)

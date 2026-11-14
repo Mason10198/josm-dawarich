@@ -10,7 +10,7 @@ public final class ReferenceDataset {
     private final List<ReferencePoint> points;
     public ReferenceDataset(String serverIdentity,String sourceId,QueryBounds query,List<ReferencePoint> points){
         if(serverIdentity==null||serverIdentity.isBlank()||sourceId==null||sourceId.isBlank())throw new IllegalArgumentException("Invalid dataset identity");
-        Objects.requireNonNull(query);Objects.requireNonNull(points);if(points.size()>MAX_POINTS)throw new IllegalArgumentException("Dataset point limit exceeded");
+        Objects.requireNonNull(query);Objects.requireNonNull(points);if(points.size()>LoadOptions.MAX_TOTAL_POINTS)throw new IllegalArgumentException("Dataset point limit exceeded");
         this.serverIdentity=serverIdentity;this.sourceId=sourceId;this.query=query;this.points=List.copyOf(points);
     }
     public String serverIdentity(){return serverIdentity;} public String sourceId(){return sourceId;} public QueryBounds query(){return query;} public List<ReferencePoint> points(){return points;}

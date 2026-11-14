@@ -1,0 +1,61 @@
+{
+  "synthetic_only": true,
+  "host": "Linux; pinned Java 17 / JOSM 19678; Xvfb; imagery disabled",
+  "method": "Actual EDT MapView pan/zoom paint, 21 frames/configuration; first separate from20 warmed frames; one run, not load/memory/Windows benchmark",
+  "configurations": [
+    {
+      "SMOKE_MAPVIEW_POINTS": 100000,
+      "SOURCES": 1,
+      "WARM_FRAMES": 20,
+      "MEAN_MS": 99.0087473,
+      "P95_MS": 118.553268,
+      "MAX_MS": 133.182385,
+      "FIRST_MS": 107.275315
+    },
+    {
+      "SMOKE_MAPVIEW_POINTS": 100000,
+      "SOURCES": 2,
+      "WARM_FRAMES": 20,
+      "MEAN_MS": 92.3856169,
+      "P95_MS": 108.769905,
+      "MAX_MS": 109.421155,
+      "FIRST_MS": 102.801205
+    },
+    {
+      "SMOKE_MAPVIEW_POINTS": 100000,
+      "SOURCES": 4,
+      "WARM_FRAMES": 20,
+      "MEAN_MS": 98.34941555,
+      "P95_MS": 115.836025,
+      "MAX_MS": 137.181974,
+      "FIRST_MS": 88.286221
+    },
+    {
+      "SMOKE_MAPVIEW_POINTS": 250000,
+      "SOURCES": 1,
+      "WARM_FRAMES": 20,
+      "MEAN_MS": 214.2315502,
+      "P95_MS": 236.178243,
+      "MAX_MS": 252.574094,
+      "FIRST_MS": 244.546795
+    },
+    {
+      "SMOKE_MAPVIEW_POINTS": 250000,
+      "SOURCES": 2,
+      "WARM_FRAMES": 20,
+      "MEAN_MS": 201.41984105,
+      "P95_MS": 218.261241,
+      "MAX_MS": 239.915221,
+      "FIRST_MS": 197.887241
+    },
+    {
+      "SMOKE_MAPVIEW_POINTS": 250000,
+      "SOURCES": 4,
+      "WARM_FRAMES": 20,
+      "MEAN_MS": 223.97823895,
+      "P95_MS": 263.570635,
+      "MAX_MS": 285.076852,
+      "FIRST_MS": 214.090955
+    }
+  ]
+}

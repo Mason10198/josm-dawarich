@@ -2,6 +2,16 @@
 
 Published artifacts and checksums are available from the GitHub releases page.
 
+## v0.2.0
+
+- Add Most recent points mode: up to N original observations per authorized source inside the frozen viewport, ordered by recorded timestamp across all history; date fields are ignored in this mode.
+- Add an adjustable shared point budget from 1 to 250,000 (default 50,000), preserving fair source quotas and retained-layer accounting. Network/time/byte safeguards remain independent.
+- Keep Date range mode complete-or-fail rather than silently truncating historical queries. Show clear, distinct point/request/response/download limit messages.
+- Show each successful source's actual recorded-time coverage and whether its requested recent count was reached or fewer observations were available.
+- Persist non-secret mode/count/budget settings and restore source metadata correctly without persisting API keys.
+- Add exact-oracle newest selection, real HTTP descending-order integration, raised-budget coordinator, scope/validation/preferences tests, and packaged two-mode GUI acceptance.
+- Exercise actual MapView rendering at 100,000 and 250,000 aggregate synthetic points. Higher budgets are opt-in and can be noticeably slower; see docs/performance.md.
+
 ## v0.1.1
 
 - Show fixed, privacy-safe per-source failure reasons instead of only FAILED. Request timeouts, authorization failures, connectivity failures, protocol problems, and capacity limits can now be distinguished.

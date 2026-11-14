@@ -11,7 +11,7 @@ After building the JAR and installing Xvfb, run:
 python3 scripts/gui-smoke.py
 ```
 
-The helper starts JOSM with a temporary isolated profile and a local synthetic HTTP server. It verifies packaged-plugin loading, no startup requests, separate authorization for two sources, two synthetic ten-point layers, Load re-enabling, unchanged empty OSM editing data, and shutdown cleanup. It writes local receipts under `build/gui-smoke-*/` (`josm.log` and `synthetic-load.png`). Inspect them locally and do not upload screenshots/logs without confirming they contain no private information. This synthetic smoke does not prove compatibility with a real Dawarich server, real credentials, or another operating system.
+The helper starts JOSM with a temporary isolated profile and a local synthetic HTTP server. It verifies packaged-plugin loading, no startup requests, separate authorization for two sources, two synthetic ten-point layers in date mode, and then newest-N mode with exact original newest IDs, historical timestamps older than the ignored date fields, actual coverage/count status, and fewer available on one source. It also verifies Load re-enabling, unchanged empty OSM editing data, and shutdown cleanup. It writes local receipts under `build/gui-smoke-*/` (`josm.log`, `synthetic-load.png`, and `synthetic-recent.png`). Inspect them locally and do not upload screenshots/logs without confirming they contain no private information. This synthetic smoke does not prove compatibility with a real Dawarich server, real credentials, or another operating system.
 
 ## GUI/manual acceptance
 

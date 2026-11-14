@@ -10,6 +10,30 @@ The `benchmark` target starts a loopback-only synthetic HTTP server (no credenti
 
 Results are written to `build/benchmark-results.json` and are intentionally not committed as machine-independent measurements. One run per configuration is reported; these are observations, not repeatable medians or p95 estimates. Heap deltas are post-GC used-heap snapshots with the fixture/server already allocated; they are not peak allocation or RSS. The heap-pool sum is a cumulative JVM high-water diagnostic, not a simultaneous-live-set estimate. Render work calls the production `DawarichLayer.paintPoints` seam over a synthetic 1024x768 raster; it is not JOSM `MapView`/projection/UI frame rate. Cancellation timing measures from immediately before `task.cancel()` until its future completes, with the loopback server stalled either before response headers or after sending/flushing the opening `[` of a JSON body.
 
+## Higher point budgets (v0.2.0)
+
+The point budget is adjustable to 250,000; 50,000 remains the default. To reproduce the higher-count **actual MapView** measurements:
+
+```sh
+python3 scripts/gui-smoke.py --renderer --points 100000
+python3 scripts/gui-smoke.py --renderer --points 250000
+```
+
+Both runs first exercised the installed plugin's real date-range and recent-mode UI against a synthetic HTTP server. Recent mode selected exact newest IDs, included historical observations older than the ignored date fields, and reported fewer available for a second independently authenticated source. The GUI fixture explicitly resets the viewport before the second query; JOSM may adjust its view when layers are added, so stale fixture bounds are not a valid connector failure.
+
+Machine-readable measurements are in [recent-mapview-results.json](recent-mapview-results.json). Each configuration used 21 actual `MapView.paint` calls on the EDT while changing center/scale and invalidating layers; first paint is separate from 20 warmed frames. Imagery was disabled. This is one synthetic Linux run per configuration, not a Windows desktop, API download, peak-memory, or sustained-interactivity guarantee.
+
+| Aggregate points | Sources | Warm mean ms/frame | Warm p95 ms/frame | First paint ms |
+|---:|---:|---:|---:|---:|
+| 100,000 | 1 | 99.0 | 118.6 | 107.3 |
+| 100,000 | 2 | 92.4 | 108.8 | 102.8 |
+| 100,000 | 4 | 98.3 | 115.8 | 88.3 |
+| 250,000 | 1 | 214.2 | 236.2 | 244.5 |
+| 250,000 | 2 | 201.4 | 218.3 | 197.9 |
+| 250,000 | 4 | 224.0 | 263.6 | 214.1 |
+
+Higher counts render correctly but do **not** meet the earlier <100 ms/frame target consistently; 250,000 points is noticeably slower. This supports an opt-in adjustable ceiling rather than claiming the largest budget is universally fast. A coordinator regression separately publishes 77,222 synthetic observations with a 100,000-point budget, proving that the higher setting is enforced end-to-end rather than only accepted by the dialog.
+
 ## Recorded run
 
 Environment: Linux 7.0.14-26-pve (glibc 2.41), Microsoft OpenJDK 17.0.21.0.2, AMD Ryzen 7 PRO 8845HS, 2 visible logical CPUs. The produced plugin jar was 73,369 bytes (52 entries; thin, no bundled dependency jars).

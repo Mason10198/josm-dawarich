@@ -21,14 +21,20 @@ public final class DawarichClient {
         this.http=b.build();
     }
     public Page fetchPage(String key, QueryBounds bounds, long startInclusive, long endInclusive, BatchBudget budget) throws DawarichException {
+        return fetchPageOrdered(key,bounds,startInclusive,endInclusive,budget,"asc");
+    }
+    public Page fetchPageDescending(String key, QueryBounds bounds, long startInclusive, long endInclusive, BatchBudget budget) throws DawarichException {
+        return fetchPageOrdered(key,bounds,startInclusive,endInclusive,budget,"desc");
+    }
+    private Page fetchPageOrdered(String key, QueryBounds bounds, long startInclusive, long endInclusive, BatchBudget budget,String order) throws DawarichException {
         if(key==null || key.indexOf('\r')>=0 || key.indexOf('\n')>=0) throw new DawarichException(DawarichException.Category.AUTH,"Invalid source authorization");
         if(bounds==null||budget==null) throw new DawarichException(DawarichException.Category.PROTOCOL,"Invalid request parameters");
         budget.beginRequest();
         CompletableFuture<HttpResponse<byte[]>> pending=null;
         try {
-            URI uri=endpoint(bounds,startInclusive,endInclusive);
+            URI uri=endpoint(bounds,startInclusive,endInclusive,order);
             HttpRequest request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20)).header("Authorization","Bearer "+key)
-                    .header("User-Agent","josm-dawarich/0.1.1").header("Accept","application/json").header("Accept-Encoding","identity").GET().build();
+                    .header("User-Agent","josm-dawarich/0.2.0").header("Accept","application/json").header("Accept-Encoding","identity").GET().build();
             pending=http.sendAsync(request, info -> new LimitedSubscriber(budget));
             budget.register(pending);
             long remaining=budget.remainingNanos(); if(remaining<=0)throw DawarichException.deadline();
@@ -58,9 +64,9 @@ public final class DawarichClient {
         catch (RuntimeException e) { throw new DawarichException(DawarichException.Category.PROTOCOL,"Invalid request or response"); }
         finally { if(pending!=null)budget.unregister(pending); }
     }
-    private URI endpoint(QueryBounds b,long start,long end) throws DawarichException {
+    private URI endpoint(QueryBounds b,long start,long end,String order) throws DawarichException {
         try {
-            String q="?page=1&per_page=10000&order=asc&slim=true&include_anomalies=false&mask_privacy_zones=false"
+            String q="?page=1&per_page=10000&order="+order+"&slim=true&include_anomalies=false&mask_privacy_zones=false"
                     +"&min_latitude="+b.minLat()+"&max_latitude="+b.maxLat()+"&min_longitude="+b.minLon()+"&max_longitude="+b.maxLon()
                     +"&start_at="+start+"&end_at="+end;
             return URI.create(settings.pointsUri().toASCIIString()+q);
@@ -76,7 +82,7 @@ public final class DawarichClient {
         LimitedSubscriber(BatchBudget b){budget=b;}
         public CompletionStage<byte[]> getBody(){return result;}
         public void onSubscribe(Flow.Subscription s){subscription=s;s.request(1);}
-        public void onNext(List<ByteBuffer> buffers){try{for(ByteBuffer bb:buffers){int n=bb.remaining();if(n>budget.maxResponseBytes()-out.size())throw DawarichException.limit();budget.addBytes(n);byte[] chunk=new byte[n];bb.get(chunk);out.write(chunk);}subscription.request(1);}catch(Exception t){subscription.cancel();result.completeExceptionally(t);}}
+        public void onNext(List<ByteBuffer> buffers){try{for(ByteBuffer bb:buffers){int n=bb.remaining();if(n>budget.maxResponseBytes()-out.size())throw new DawarichException(DawarichException.Category.LIMIT,"Response byte limit exceeded; narrow the area or dates");budget.addBytes(n);byte[] chunk=new byte[n];bb.get(chunk);out.write(chunk);}subscription.request(1);}catch(Exception t){subscription.cancel();result.completeExceptionally(t);}}
         public void onError(Throwable t){result.completeExceptionally(t);}
         public void onComplete(){result.complete(out.toByteArray());}
     }
