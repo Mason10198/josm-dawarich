@@ -40,6 +40,19 @@ The packaged GUI acceptance pauses an actual partial HTTP response. It verifies 
 
 Alternating released-v0.2.0/current-candidate HTTP benchmark runs are retained in `ux-progress-benchmark-results.json`: two fresh JVMs per version. All nine configurations preserve the exact original point oracle and the same HTTP request counts. Timings are noisy: at 50,000 points/one source the candidate took 930/951 ms versus 690/732 ms for the release; other configurations overlap or reverse the ordering. This is not sufficient to claim a speedup or rule out a regression. It excludes the Swing timer and real network latency. Production rendering code is unchanged; progress uses constant-size snapshots and accepted-page counter updates, not per-observation callbacks or additional requests. Use actual MapView and paused-response checks alongside these results rather than treating a local microbenchmark as end-user throughput.
 
+## Large downloads (v0.4.0)
+
+The earlier higher-budget tests measured rendering of generated datasets, not a complete 250,000-point API download. The old broad-window bisection also discarded saturated pages and could repeatedly download the same observations before accepting any. Cursor traversal now accepts page interiors immediately, with exact-second boundary checks for ties; it does not re-download entire parent pages.
+
+```sh
+python3 scripts/gui-smoke.py --large-download
+python3 scripts/credential-restart-smoke.py
+```
+
+One synthetic Linux packaged-JOSM large-download run returned and published all 250,000 observations with an exact ID/coordinate/timestamp oracle: 49 requests, 79,648,511 response bytes, 3,788 ms. The selected counter was nonzero before the second response completed. The fixture deliberately includes long synthetic tracker metadata to exceed the former 64 MiB aggregate bound. These are local fixture observations, not a real-server or WAN speed promise; normal metadata may be smaller. Rendering at this count retains the limitations above.
+
+The credential acceptance uses one isolated profile and two actual JOSM processes, re-copies the plugin archive between launches, and verifies remembered-key restoration, immediate source-metadata persistence, cleared transient/RAM copies, sensitive-field registration, unrelated-credential isolation, and no startup download. It uses dummy credentials only. The default credential backend is unencrypted local preferences, not an asserted OS keychain.
+
 ## Recorded run
 
 Environment: Linux 7.0.14-26-pve (glibc 2.41), Microsoft OpenJDK 17.0.21.0.2, AMD Ryzen 7 PRO 8845HS, 2 visible logical CPUs. The produced plugin jar was 73,369 bytes (52 entries; thin, no bundled dependency jars).

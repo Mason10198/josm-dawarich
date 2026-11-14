@@ -8,7 +8,8 @@ After building the JAR and installing Xvfb, run:
 
 ```sh
 ./scripts/bootstrap-build.sh clean test dist
-python3 scripts/gui-smoke.py
+python3 scripts/gui-smoke.py --large-download
+python3 scripts/credential-restart-smoke.py
 ```
 
 The helper starts JOSM with a temporary isolated profile and a local synthetic HTTP server. It verifies packaged-plugin loading, no startup requests, direct key entry, the Imagery-menu command, separate authorization for two sources, two synthetic ten-point layers in date mode, and then newest-N mode with exact original newest IDs, historical timestamps older than the ignored date fields, actual coverage/count status, and fewer available on one source. A paused partial HTTP response verifies changing received-byte/elapsed progress before completion, an EDT ping under 500 ms, no extra requests, no partial layer replacement, and timer cleanup. A stalled request verifies Close cancellation, password-editor wiping, retained layers, and idle reopening without a download. It also verifies Load re-enabling, unchanged empty OSM editing data, and shutdown cleanup. It writes local receipts under `build/gui-smoke-*/` (`josm.log`, `synthetic-load.png`, `synthetic-recent.png`, and `synthetic-progress.png`). Inspect them locally and do not upload screenshots/logs without confirming they contain no private information. This synthetic smoke does not prove compatibility with a real Dawarich server, real credentials, or another operating system.
@@ -29,7 +30,7 @@ The helper starts JOSM with a temporary isolated profile and a local synthetic H
 - [ ] Verify retained hidden layers still count toward aggregate capacity; per-source quota is fair and unused quota is not redistributed.
 - [ ] With controlled mock responses, exercise auth failure, redirect, 429, 5xx, malformed JSON/headers, oversize response, duplicate/out-of-bounds points, dense single-second window, cancellation, deadline, and request/point limits. Confirm errors do not expose keys, raw response bodies, or full credential-bearing URLs.
 - [ ] Confirm `mask_privacy_zones=false` is sent as designed and separately confirm the server's mandatory restrictions remain effective; stop if server policy does not permit this private reference use.
-- [ ] Confirm layers are not savable/exportable as GPX or session-persisted custom layers; keys require re-entry after restart, while validated non-secret common source settings persist in JOSM preferences.
+- [ ] Confirm layers are not savable/exportable as GPX or session-persisted custom layers; default session-only keys require re-entry after restart. Explicitly remembered keys and their stable source UUIDs survive process restart/archive replacement; unchecked sources do not restore keys. Verify the visible unencrypted-storage warning, source/server separation, opt-out/deletion behavior, and sensitive-field registration. Never use real keys in acceptance fixtures.
 - [ ] Use Stop download, Close, and the window close control during and after a load; confirm active load cancellation, stopped progress sampling, no second active load while cancellation drains, and transient password-editor cleanup while session keys and layers remain. Remove a source or change server/credentials and confirm applicable session state clears; shut down JOSM and confirm all session state clears. Verify the OSM editing dataset is unchanged.
 - [ ] Check JOSM tile/network behavior separately: this plugin cannot prevent unrelated map tile services from receiving viewport requests.
 

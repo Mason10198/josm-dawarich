@@ -36,7 +36,7 @@ public class TimeWindowIntegrationTest {
             ReferenceDataset actual=new TimeWindowFetcher(f.client()).fetch("local","source","test-key",bounds(),12000,budget());
             Map<Long,ReferencePoint> byId=new HashMap<>();for(ReferencePoint p:expected)byId.put(p.id(),p);
             assertEquals(expected.size(),actual.points().size());for(ReferencePoint p:actual.points())assertEquals(byId.get(p.id()),p);
-            assertTrue(f.windows.size()>3);for(long[] w:f.windows)assertTrue(w[0]<=w[1]);
+            assertEquals(3,f.windows.size());assertEquals(0,f.windows.get(0)[0]);assertEquals(99,f.windows.get(0)[1]);assertEquals(11,f.windows.get(1)[0]);assertEquals(11,f.windows.get(1)[1]);assertEquals(12,f.windows.get(2)[0]);assertEquals(99,f.windows.get(2)[1]);
         }
     }
     @Test public void realClientReportsUndividableTimestampDensityWithoutPartialDataset() throws Exception {

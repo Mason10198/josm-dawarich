@@ -16,15 +16,18 @@ public final class ConnectionPreferences {
         prefs.put(ENDPOINT, registry.endpoint()==null ? "" : registry.endpoint());
         prefs.putBoolean(HTTP, registry.allowHttp());
         List<Map<String,String>> rows=new ArrayList<>();
-        for(SourceSettings s:registry.rows()) { Map<String,String> m=new LinkedHashMap<>(); m.put("id",s.id);m.put("label",s.label);m.put("color",s.color);m.put("enabled",Boolean.toString(s.enabled));rows.add(m); }
+        for(SourceSettings s:registry.rows()) { Map<String,String> m=new LinkedHashMap<>(); m.put("id",s.id);m.put("label",s.label);m.put("color",s.color);m.put("enabled",Boolean.toString(s.enabled));m.put("rememberKey",Boolean.toString(registry.isRemembered(s.id)));rows.add(m); }
         prefs.putListOfMaps(SOURCES,rows); prefs.put(START,start.toString());prefs.put(END,end.toString()); prefs.put(MODE,options.mode().name());prefs.putInt(RECENT,options.recentPointsPerSource());prefs.putInt(BUDGET,options.totalPointLimit());
     }
     public static Settings load(IPreferences prefs) {
-        Objects.requireNonNull(prefs); SourceRegistry registry=new SourceRegistry();
+        return load(prefs,null);
+    }
+    public static Settings load(IPreferences prefs,SavedApiKeys store) {
+        Objects.requireNonNull(prefs); SourceRegistry registry=new SourceRegistry(store);
         try { String endpoint=prefs.get(ENDPOINT,""); boolean http=prefs.getBoolean(HTTP,false); if(endpoint!=null&&!endpoint.isBlank())registry.setEndpoint(endpoint,http); } catch(RuntimeException ignored) { }
         try { Set<String> ids=new HashSet<>(); for(Map<String,String> m:prefs.getListOfMaps(SOURCES,new ArrayList<>())) { try {
             String id=m.get("id"), label=m.get("label"), color=m.get("color"); boolean enabled=Boolean.parseBoolean(m.get("enabled"));
-            SourceSettings row=new SourceSettings(id,label,color,enabled); if(ids.add(id))registry.add(row);
+            SourceSettings row=new SourceSettings(id,label,color,enabled); if(ids.add(id)){registry.add(row);if(Boolean.parseBoolean(m.get("rememberKey")))registry.restoreRemembered(id);}
         } catch(RuntimeException ignored) { } } } catch(RuntimeException ignored) { }
         LocalDate today=LocalDate.now(), start=date(prefs,START,today.minusMonths(12)), end=date(prefs,END,today);
         if(start.isAfter(today) || end.isAfter(today) || end.isBefore(start)) { start=today.minusMonths(12); end=today; }

@@ -30,7 +30,8 @@ public class TimeWindowFetcherTest {
         });
         var d=new TimeWindowFetcher(f).fetch("https://s","src","unused",bounds,12000,budget());
         assertEquals(12000,d.points().size());assertEquals(12000,d.points().stream().map(ReferencePoint::id).distinct().count());
-        assertTrue(f.calls.size()>3);
+        assertEquals(3,f.calls.size());
+        assertArrayEquals(new long[]{0,99},f.calls.get(0));assertArrayEquals(new long[]{11,11},f.calls.get(1));assertArrayEquals(new long[]{12,99},f.calls.get(2));
         Map<Long,ReferencePoint> expected=new HashMap<>();for(ReferencePoint p:all)expected.put(p.id(),p);
         for(ReferencePoint p:d.points())assertEquals(expected.get(p.id()),p);
     }

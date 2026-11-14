@@ -8,7 +8,8 @@ import java.util.concurrent.CompletableFuture;
 /** Shared hard limits and cooperative cancellation for one fetch batch. */
 public final class BatchBudget {
     public static final int DEFAULT_REQUESTS = 128;
-    public static final long DEFAULT_BYTES = 64L * 1024 * 1024;
+    public static final long DEFAULT_BYTES = 128L * 1024 * 1024;
+    public static final int DEFAULT_SECONDS = 180;
     public static final int DEFAULT_RESPONSE_BYTES = 8 * 1024 * 1024;
     private final int maxRequests, maxResponseBytes;
     private final long maxBytes, deadlineNanos;
@@ -18,7 +19,7 @@ public final class BatchBudget {
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private CompletableFuture<?> active;
 
-    public BatchBudget() { this(DEFAULT_REQUESTS, Duration.ofSeconds(60), DEFAULT_BYTES, DEFAULT_RESPONSE_BYTES); }
+    public BatchBudget() { this(DEFAULT_REQUESTS, Duration.ofSeconds(DEFAULT_SECONDS), DEFAULT_BYTES, DEFAULT_RESPONSE_BYTES); }
     BatchBudget(int maxRequests, Duration duration, long maxBytes, int maxResponseBytes) {
         if (maxRequests < 1 || duration.isNegative() || duration.isZero() || maxBytes < 1 || maxResponseBytes < 1)
             throw new IllegalArgumentException("Invalid batch limits");

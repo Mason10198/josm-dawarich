@@ -165,9 +165,28 @@ public class JosmGuiSmoke {
   }
 
   }
+  if(Boolean.getBoolean("smoke.largeDownload"))largeDownload(server,registry,task,panel,plugin);
   // Reference rendering must leave the empty editable dataset untouched.
   require(MainApplication.getLayerManager().getEditDataSet().allPrimitives().isEmpty(),"Reference loading modified OSM data");
   edt(()->{try{call(plugin,"destroy",new Class<?>[]{});}catch(Exception e){throw new RuntimeException(e);}});
   require(((Map<?,?>)call(task,"layersSnapshot",new Class<?>[]{})).isEmpty(),"Shutdown did not release reference layers");System.out.println("SMOKE_OSM_UNCHANGED=true; SHUTDOWN_RELEASED=true");server.stop(0);System.exit(0);
+ }
+ static void largeDownload(HttpServer server,Object registry,Object task,Object panel,Object plugin)throws Exception{
+  server.removeContext("/api/v1/points");AtomicInteger calls=new AtomicInteger();AtomicLong bytesSent=new AtomicLong();CountDownLatch secondRequest=new CountDownLatch(1),resume=new CountDownLatch(1);long origin=java.time.Instant.now().minusSeconds(300000).getEpochSecond();
+  server.createContext("/api/v1/points",x->{try{
+   int number=calls.incrementAndGet();if(number==2){secondRequest.countDown();try{if(!resume.await(10,TimeUnit.SECONDS))throw new java.io.IOException("Large test not resumed");}catch(InterruptedException e){Thread.currentThread().interrupt();throw new java.io.IOException(e);}}
+   Map<String,String> q=new HashMap<>();for(String pair:x.getRequestURI().getRawQuery().split("&")){String[] p=pair.split("=",2);q.put(p[0],p[1]);}
+   require("1".equals(q.get("page"))&&"desc".equals(q.get("order")),"Large request broke page-one descending contract");
+   long from=Long.parseLong(q.get("start_at")),to=Long.parseLong(q.get("end_at"));int low=(int)Math.max(1,from-origin),high=(int)Math.min(250000,to-origin),count=Math.max(0,high-low+1);StringBuilder json=new StringBuilder("[");
+   for(int id=high,n=0;id>=low&&n<10000;id--,n++){if(n>0)json.append(',');json.append("{\"id\":").append(id).append(",\"latitude\":\"").append(.001+(id%17)*.000001).append("\",\"longitude\":\"").append(.001+(id%23)*.000001).append("\",\"timestamp\":").append(origin+id).append(",\"velocity\":12.345,\"country_name\":\"United States\",\"tracker_id\":\"").append("synthetic-device-".repeat(10)).append("\"}");}
+   byte[] bytes=json.append(']').toString().getBytes(StandardCharsets.UTF_8);bytesSent.addAndGet(bytes.length);x.getResponseHeaders().set("Content-Type","application/json");x.getResponseHeaders().set("X-Current-Page","1");x.getResponseHeaders().set("X-Total-Pages",Integer.toString((count+9999)/10000));x.sendResponseHeaders(200,bytes.length);try(var out=x.getResponseBody()){out.write(bytes);}
+  }finally{x.close();}});
+  var rows=(java.util.List<?>)call(registry,"rows",new Class<?>[]{});String remove=(String)rows.get(1).getClass().getField("id").get(rows.get(1));ClassLoader loader=plugin.getClass().getClassLoader();Class<?> options=loader.loadClass("org.openstreetmap.josm.plugins.dawarich.LoadOptions"),mode=loader.loadClass("org.openstreetmap.josm.plugins.dawarich.LoadOptions$Mode");Object settings=options.getConstructor(mode,int.class,int.class).newInstance(mode.getField("MOST_RECENT").get(null),250000,250000);
+  long began=System.nanoTime();edt(()->{try{call(registry,"remove",new Class<?>[]{String.class},remove);call(panel,"setLoadOptions",new Class<?>[]{options},settings);MainApplication.getMap().mapView.zoomTo(new Bounds(-.01,-.01,.01,.01));((JButton)call(panel,"loadButton",new Class<?>[]{})).doClick();}catch(Exception e){throw new RuntimeException(e);}});
+  require(secondRequest.await(8,TimeUnit.SECONDS),"Large load did not advance past first response");Thread.sleep(300);Object progress=call(task,"progress",new Class<?>[]{});require(progress!=null&&(long)call(progress,"selectedPoints",new Class<?>[]{})>0,"Large download still selected zero points after first page");resume.countDown();
+  long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(90);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(30);require(!(boolean)call(task,"isLoading",new Class<?>[]{}),"Large load failed to finish");Map<?,?> layers=(Map<?,?>)call(task,"layersSnapshot",new Class<?>[]{});require(layers.size()==1,"Large load layer/source mismatch");Object layer=layers.values().iterator().next();require((int)call(layer,"pointCount",new Class<?>[]{})==250000,"Large result is not 250,000 points: "+((JLabel)call(panel,"statusLabel",new Class<?>[]{})).getText());
+  BitSet ids=new BitSet(250001);for(Object p:(java.util.List<?>)call(field(layer,"dataset"),"points",new Class<?>[]{})){int id=(int)(long)call(p,"id",new Class<?>[]{});require(id>=1&&id<=250000&&!ids.get(id),"Large original ID oracle failed");ids.set(id);require((long)call(p,"timestamp",new Class<?>[]{})==origin+id&&Double.compare((double)call(p,"latitude",new Class<?>[]{}),.001+(id%17)*.000001)==0&&Double.compare((double)call(p,"longitude",new Class<?>[]{}),.001+(id%23)*.000001)==0,"Large original coordinate/timestamp oracle failed");}
+  require(ids.cardinality()==250000&&calls.get()<=51,"Large download re-read excessive pages");require(bytesSent.get()>64L*1024*1024&&bytesSent.get()<128L*1024*1024,"Large payload did not exercise realistic aggregate byte headroom");
+  javax.imageio.ImageIO.write(new Robot().createScreenCapture(new Rectangle(0,0,1280,900)),"png",Path.of(System.getProperty("smoke.out"),"synthetic-large-download.png").toFile());System.out.println("SMOKE_LARGE_DOWNLOAD=true; POINTS=250000; ORIGINAL_ORACLE=true; EARLY_SELECTED_POINTS=true; HTTP_REQUESTS="+calls.get()+"; RECEIVED_BYTES="+bytesSent.get()+"; ELAPSED_MS="+TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-began));
  }
 }
