@@ -15,7 +15,7 @@ class DialogValidationTest {
 
     @Test void invalidDateShowsSanitizedStatusWithoutCallbackOrThrow() throws Exception {edt(()->{
         SourceRegistry r=readyRegistry();LoadReferenceDialog d=new LoadReferenceDialog(r);dates(d);d.startDateField().setText("not-a-date");AtomicInteger calls=new AtomicInteger();d.setLoadHandler(x->calls.incrementAndGet());
-        assertDoesNotThrow(()->d.loadButton().doClick());assertEquals(0,calls.get());assertEquals("Invalid connection, dates, or enabled-source credentials",d.statusLabel().getText());
+        assertDoesNotThrow(()->d.loadButton().doClick());assertEquals(0,calls.get());assertEquals("Invalid connection, dates, point settings, or enabled-source credentials",d.statusLabel().getText());
     });}
     @Test void destinationKeyEditInvalidatesAllOtherKeysBeforeLoad() throws Exception {edt(()->{
         SourceRegistry r=readyRegistry();LoadReferenceDialog d=new LoadReferenceDialog(r);dates(d);d.serverField().setText("https://new.example");

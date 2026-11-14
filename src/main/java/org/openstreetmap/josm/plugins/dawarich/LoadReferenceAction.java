@@ -1,6 +1,7 @@
 package org.openstreetmap.josm.plugins.dawarich;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.*;
 import javax.swing.*;
@@ -57,7 +58,7 @@ public final class LoadReferenceAction extends JosmAction {
         Viewport v=viewSupplier.get();
         if(v==null||v.width()<=0||v.height()<=0){panel.statusLabel().setText("Open a map view before loading reference data");return;}
         final QueryBounds query;
-        try { query=new QueryBounds(Math.min(v.top(),v.bottom()),Math.max(v.top(),v.bottom()),v.left(),v.right(),request.startDate,request.endDate,request.timezone,Instant.now()); }
+        try { query=(request.options.mode()==LoadOptions.Mode.MOST_RECENT ? QueryBounds.mostRecent(Math.min(v.top(),v.bottom()),Math.max(v.top(),v.bottom()),v.left(),v.right(),request.timezone,Instant.now()) : new QueryBounds(Math.min(v.top(),v.bottom()),Math.max(v.top(),v.bottom()),v.left(),v.right(),request.startDate,request.endDate,request.timezone,Instant.now())).withOptions(request.options); }
         catch(RuntimeException ex){panel.statusLabel().setText("Invalid view bounds or date range; no request started");return;}
         if(query.broadAreaNeedsConfirmation()&&!confirm.test(query)){panel.statusLabel().setText("Load cancelled; no request started");return;}
         panel.loadButton().setEnabled(false);panel.statusLabel().setText("Loading reference data…");
@@ -71,6 +72,16 @@ public final class LoadReferenceAction extends JosmAction {
             if(source.status()==LoadReferenceTask.Status.FAILED||source.status()==LoadReferenceTask.Status.SKIPPED||source.status()==LoadReferenceTask.Status.CANCELLED)
                 text.append(" — ").append(escape(safeFailureReason(source.message())));
             if(source.pointCount()>0)text.append(" (").append(source.pointCount()).append(" points)");
+            if(source.status()==LoadReferenceTask.Status.COMPLETE) {
+                if(source.requestedPoints()>0)text.append(source.pointCount()>=source.requestedPoints()?" — reached requested ":" — fewer than requested ").append(source.requestedPoints());
+                if(source.pointCount()==0) text.append(" — no matching points");
+                else if(source.oldestTimestamp()>0&&source.newestTimestamp()>0) {
+                    ZoneId zone=ZoneId.systemDefault();
+                    text.append("<br>&nbsp;&nbsp;Recorded: ").append(escape(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(zone).format(Instant.ofEpochSecond(source.oldestTimestamp()))))
+                        .append(" to ").append(escape(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(zone).format(Instant.ofEpochSecond(source.newestTimestamp()))));
+
+                }
+            }
             if(source.stale()&&source.pointCount()>0)text.append(" — old layer retained");
         }
         if(!result.overlappingIds().isEmpty())text.append("; ").append(result.overlappingIds().size()).append(" overlapping point IDs across sources; keys may refer to the same account. Layers kept separate.");
@@ -89,7 +100,13 @@ public final class LoadReferenceAction extends JosmAction {
                 "Invalid request or response", "Batch limit exceeded", "Batch deadline exceeded",
                 "Source exceeds its fair point capacity", "Source returned mismatched dataset identity",
                 "Retained point capacity exceeded", "Invalid dataset parameters", "Point outside requested bounds",
-                "Duplicate point identifier", "Too many points within one second; narrow the area",
+                "Duplicate point identifier", "Unexpected point order",
+                "Point limit exceeded; narrow the area or dates, or raise the total point budget",
+                "Request limit exceeded; narrow the area or dates",
+                "Response byte limit exceeded; narrow the area or dates",
+                "Download byte limit exceeded; narrow the area or dates",
+                "Recent count exceeds this source's share; reduce the count or raise the total point budget",
+                "Too many points within one second; narrow the area",
                 "Request cancelled", "Skipped after shared batch failure",
                 "Coordinator disposed", "Server changed", "Source removed", "Source disabled or removed",
                 "Source settings changed", "Layer lifecycle changed" -> message;

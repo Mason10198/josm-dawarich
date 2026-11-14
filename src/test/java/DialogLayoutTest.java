@@ -48,7 +48,7 @@ class DialogLayoutTest {
             Component form = dialog.getComponent(0);
             Component table = dialog.getComponent(1);
             Component buttons = dialog.getComponent(2);
-            assertTrue(form.getHeight() < dialog.getHeight() / 2, "status must not stretch the form");
+            assertTrue(form.getHeight() <= 280, "status must not stretch the expanded options form");
             assertTrue(table.getHeight() > 0, "source table must retain visible space");
             for (Component child : ((JPanel) buttons).getComponents()) {
                 Rectangle bounds = SwingUtilities.convertRectangle(child.getParent(), child.getBounds(), dialog);

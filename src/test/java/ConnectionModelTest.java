@@ -27,11 +27,13 @@ class ConnectionModelTest {
   Map<String,Object> data=new HashMap<>(); IPreferences p=(IPreferences)Proxy.newProxyInstance(getClass().getClassLoader(),new Class[]{IPreferences.class},(o,m,a)->{
    String k=a!=null&&a.length>0&&a[0] instanceof String?(String)a[0]:"";
    switch(m.getName()) {case "put": case "putBoolean": case "putInt": case "putLong": case "putDouble": case "putList": case "putListOfLists": case "putListOfMaps": data.put(k,a[1]); return true;
-   case "get": return data.getOrDefault(k,a.length>1?a[1]:null); case "getBoolean":return data.getOrDefault(k,a[1]); case "getList":case "getListOfLists":case "getListOfMaps":return data.getOrDefault(k,a[1]); case "getKeySet":return data.keySet(); case "toString":return data.toString(); default:return null; }
+   case "get": return data.getOrDefault(k,a.length>1?a[1]:null); case "getBoolean":case "getInt":return data.getOrDefault(k,a[1]); case "getList":case "getListOfLists":case "getListOfMaps":return data.getOrDefault(k,a[1]); case "getKeySet":return data.keySet(); case "toString":return data.toString(); default:return null; }
   });
   SourceRegistry r=new SourceRegistry(); SourceSettings a=r.add("One"),b=r.add("Two"),c=r.add("Three"); r.setEndpoint("https://host/base",false); r.setKey(a.id,"secret-a");r.setKey(b.id,"secret-b");r.setKey(c.id,"secret-c");
   assertEquals("secret-a",r.session(a.id).snapshot().apiKey()); assertEquals("secret-b",r.session(b.id).snapshot().apiKey()); assertEquals("secret-c",r.session(c.id).snapshot().apiKey());
   LocalDate start=LocalDate.parse("2025-01-02"),end=LocalDate.parse("2025-03-04"); ConnectionPreferences.save(p,r,start,end);
+  ConnectionPreferences.save(p,r,start,end,new LoadOptions(LoadOptions.Mode.MOST_RECENT,123,456));
+  assertEquals(new LoadOptions(LoadOptions.Mode.MOST_RECENT,123,456),ConnectionPreferences.load(p).options());
   assertFalse(data.toString().contains("secret-")); var loaded=ConnectionPreferences.load(p); assertEquals(3,loaded.registry().rows().size()); assertEquals(start,loaded.startDate());assertEquals(end,loaded.endDate());
   for(SourceSettings row:loaded.registry().rows())assertNull(loaded.registry().session(row.id).snapshot().apiKey());
   LocalDate today=LocalDate.now(), fallback=today.minusMonths(12);

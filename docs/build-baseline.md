@@ -2,24 +2,25 @@
 
 ## Supported local build path
 
-The reproducible bootstrap is currently Linux x86-64-specific. `scripts/bootstrap-build.sh` downloads pinned Microsoft JDK 17.0.21.0.2, Apache Ant 1.10.15, JOSM 19678, and JUnit Platform Console Standalone 1.11.4 into `$HOME/.hermes/cache/toolchains`; hashes are recorded/verified by the bootstrap and `build.properties`. The JAR is built against the host-provided JOSM APIs with `--release 17`; JOSM, JUnit, and JSON libraries are not bundled as plugin dependencies.
-
-Run the full build, automated tests, and distribution target with:
+The reproducible bootstrap is Linux x86-64-specific. `scripts/bootstrap-build.sh` downloads pinned Microsoft JDK 17.0.21.0.2, Apache Ant 1.10.15, JOSM 19678, and JUnit Platform Console Standalone 1.11.4 into `$HOME/.hermes/cache/toolchains`; hashes are verified by the bootstrap and `build.properties`. The plugin targets Java 17; JOSM, JUnit, and JSON libraries are not bundled.
 
 ```sh
 ./scripts/bootstrap-build.sh clean test dist
+python3 scripts/gui-smoke.py
 ```
 
-For selective test classes, `-Dtest.includes` is a Java regex against class names, e.g. `-Dtest.includes='ConnectionStateTest'`.
+Selective class tests use a Java regex, e.g. `-Dtest.includes='ConnectionStateTest'`.
 
-## Current local verification
+## v0.2.0 local verification
 
-On the current Linux environment, the command above completed successfully: 19 test containers passed; 87 tests were found, started, and successful; none failed, skipped, or aborted. The produced `dist/dawarich.jar` contains 52 entries (73,369-byte JAR; 146,374 bytes of uncompressed contents), including plugin classes/resources and the packaged GPL license. It does not bundle JOSM or JUnit classes. SHA-256 for the locally produced JAR: `70cfc40ea71247f0ec6a818026c69d72ed3abb63de160fb52312ffe0ef040697`. This hash and size are local build evidence, not a release checksum or promise of identical output across different source revisions/toolchains.
+The feature passed 112 automated tests and isolated packaged-plugin GUI acceptance on Linux/JOSM 19678. The GUI exercised both date and newest-N modes, two independent synthetic authorizations, exact newest original IDs, history older than ignored date fields, actual recorded coverage, count availability, unchanged OSM editing data, and shutdown cleanup. Higher-count actual MapView measurements and their limitations are in [performance.md](performance.md). Receipts stay in ignored `build/gui-smoke-*/` directories. Release checksums belong to each published release's sidecar, not a stale source-document hash.
 
-The packaged GUI smoke `python3 scripts/gui-smoke.py` also passed locally on JOSM 19678 with an isolated temporary profile and synthetic loopback service: plugin loaded; zero startup requests; two independent source authorizations; two sources with ten synthetic points each; two GET requests; Load re-enabled; OSM editing data unchanged; and shutdown released plugin layers. Receipts are under the ignored `build/gui-smoke-*/` directory. A separate two-authorized-user read-only live pilot passed: every returned ID, coordinate, and timestamp matched independent authenticated reads exactly. No raw data, hostnames, or keys are included here. This does not establish Windows/macOS compatibility.
+Earlier private read-only two-user validation matched IDs, coordinates, and timestamps against independent authenticated reads. It is separate evidence, not a claim that this feature was live-tested using a new production key. No raw points, private hostnames, account mappings, or credentials are included here. Windows/macOS manual desktop compatibility is not established.
 
-## CI and remaining checks
+## Compatibility CI and artifact provenance
 
-`.github/workflows/ci.yml` is configured with read-only `contents: read` permissions and immutable commit-pinned GitHub Actions: the baseline uses the checksum-pinned Microsoft Java 17/JOSM 19678 toolchain, plus a Java 25/JOSM 19689 compatibility job. The baseline also runs the synthetic packaged GUI smoke under Xvfb. The JOSM 19689 JAR was fetched from the official JOSM download endpoint and its SHA-256 verified locally as `feede61a84b3716c556536be38971d5c6d3b389265c7f8d98ef6a2c8aac49d51`. Java 25/JOSM 19689 has not been locally executed in this environment; these are configured CI checks only, not observed remote passes.
+CI has read-only `contents: read` permission and commit-pinned GitHub Actions. The baseline uses the checksum-pinned Java 17/JOSM 19678 toolchain and runs the packaged GUI under Xvfb. The compatibility job uses Java 25 and the JOSM project's versioned GitHub release asset `19689/JOSM-Linux-java25-19689.jar`.
 
-No public repository/remote, Actions run, release tag, GitHub Release, or registry entry is confirmed. Before publication, follow [the release gates](publishing.md) and [manual test checklist](manual-test-checklist.md). Windows/macOS bootstrap/install/use remain undocumented and unverified.
+That asset's SHA-256, verified against the publisher's GitHub release asset digest, is `97357c101fbfb81d3b68f34bf1c63918acb88b897d109d697e0a1363d012ad1f`. Its embedded revision is 19689. The separate revision-numbered nightly snapshot URL is not byte-immutable: a later download changed only `REVISION`, the manifest, and the two signing entries, while all class/resource entries remained identical. CI therefore pins the versioned publisher release asset instead of accepting changing nightly hashes or disabling verification.
+
+Java 25 compatibility is exercised by remote CI, not locally on the Java 17-only baseline. Check the exact commit's run; an earlier pass does not certify later changes. v0.1.0/v0.1.1 were published and verified through the official directory. Every later release must independently pass [publishing.md](publishing.md), exact-commit CI, artifact verification, and catalog/native-install checks.

@@ -24,10 +24,10 @@ public final class BatchBudget {
         this.deadlineNanos=System.nanoTime()+duration.toNanos();
     }
     public void beginRequest() throws DawarichException {
-        check(); if (requests.incrementAndGet()>maxRequests) throw DawarichException.limit(); check();
+        check(); if (requests.incrementAndGet()>maxRequests) throw new DawarichException(DawarichException.Category.LIMIT,"Request limit exceeded; narrow the area or dates"); check();
     }
     public void addBytes(int n) throws DawarichException {
-        check(); if (n<0 || bytes.addAndGet(n)>maxBytes) throw DawarichException.limit(); check();
+        check(); if (n<0 || bytes.addAndGet(n)>maxBytes) throw new DawarichException(DawarichException.Category.LIMIT,"Download byte limit exceeded; narrow the area or dates"); check();
     }
     public void check() throws DawarichException {
         if (cancelled.get()) throw DawarichException.cancelled();

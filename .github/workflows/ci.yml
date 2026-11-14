@@ -48,10 +48,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.hermes/cache/toolchains"
-          curl --fail --location --retry 3 https://josm.openstreetmap.de/download/josm-snapshot-19689.jar \
+          # Revision snapshot URLs can be rebuilt/re-signed nightly; use the versioned publisher release asset.
+          curl --fail --location --retry 3 https://github.com/JOSM/josm/releases/download/19689/JOSM-Linux-java25-19689.jar \
             --output "$HOME/.hermes/cache/toolchains/josm-19689.jar"
           printf '%s  %s\n' \
-            'feede61a84b3716c556536be38971d5c6d3b389265c7f8d98ef6a2c8aac49d51' \
+            '97357c101fbfb81d3b68f34bf1c63918acb88b897d109d697e0a1363d012ad1f' \
             "$HOME/.hermes/cache/toolchains/josm-19689.jar" | sha256sum --check --status
       - name: Run Java 25 / JOSM 19689 tests and build
         if: ${{ !matrix.baseline }}
