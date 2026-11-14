@@ -67,13 +67,34 @@ public final class LoadReferenceAction extends JosmAction {
         if(disposed)return;
         StringBuilder text=new StringBuilder("<html>").append(escape(result.status().toString())).append(" — ").append(result.totalPoints()).append(" points; fair per-source quota ").append(result.perSourceQuota());
         for(var source:result.sources()){
-            text.append(" | ").append(escape(panel.sourceLabel(source.sourceId()))).append(": ").append(escape(source.status().toString()));
+            text.append("<br>").append(escape(panel.sourceLabel(source.sourceId()))).append(": ").append(escape(source.status().toString()));
+            if(source.status()==LoadReferenceTask.Status.FAILED||source.status()==LoadReferenceTask.Status.SKIPPED||source.status()==LoadReferenceTask.Status.CANCELLED)
+                text.append(" — ").append(escape(safeFailureReason(source.message())));
             if(source.pointCount()>0)text.append(" (").append(source.pointCount()).append(" points)");
             if(source.stale()&&source.pointCount()>0)text.append(" — old layer retained");
         }
         if(!result.overlappingIds().isEmpty())text.append("; ").append(result.overlappingIds().size()).append(" overlapping point IDs across sources; keys may refer to the same account. Layers kept separate.");
         panel.statusLabel().setText(text.append("</html>").toString());
         panel.loadButton().setEnabled(result.status()!=LoadReferenceTask.Status.LOADING&&!loadingCheck.getAsBoolean());
+    }
+    /** Only fixed local diagnostics are displayable; never expose raw exception/HTTP text. */
+    private static String safeFailureReason(String message){
+        if(message==null)return "Source load failed";
+        return switch(message){
+            case "API key is not configured", "Invalid source authorization", "Source authorization failed",
+                "Request timed out", "Service connection failed", "Service rate limit", "Service unavailable",
+                "Redirect refused", "Unexpected service response", "Invalid response content type",
+                "Unexpected content encoding", "Invalid pagination headers", "Missing or invalid pagination headers",
+                "Invalid point data", "Contradictory pagination response", "Invalid request parameters",
+                "Invalid request or response", "Batch limit exceeded", "Batch deadline exceeded",
+                "Source exceeds its fair point capacity", "Source returned mismatched dataset identity",
+                "Retained point capacity exceeded", "Invalid dataset parameters", "Point outside requested bounds",
+                "Duplicate point identifier", "Too many points within one second; narrow the area",
+                "Request cancelled", "Skipped after shared batch failure",
+                "Coordinator disposed", "Server changed", "Source removed", "Source disabled or removed",
+                "Source settings changed", "Layer lifecycle changed" -> message;
+            default -> "Source load failed";
+        };
     }
     private static String escape(String s){return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
     public void setLoadingCheck(BooleanSupplier check){loadingCheck=Objects.requireNonNull(check);}
