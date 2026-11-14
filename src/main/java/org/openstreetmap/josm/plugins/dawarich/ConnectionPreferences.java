@@ -28,7 +28,7 @@ public final class ConnectionPreferences {
         } catch(RuntimeException ignored) { } } } catch(RuntimeException ignored) { }
         LocalDate today=LocalDate.now(), start=date(prefs,START,today.minusMonths(12)), end=date(prefs,END,today);
         if(start.isAfter(today) || end.isAfter(today) || end.isBefore(start)) { start=today.minusMonths(12); end=today; }
-        LoadOptions options; try { options=new LoadOptions(LoadOptions.Mode.valueOf(prefs.get(MODE,LoadOptions.Mode.DATE_RANGE.name())),prefs.getInt(RECENT,10000),prefs.getInt(BUDGET,50000)); } catch(RuntimeException ex) { options=LoadOptions.defaults(); }
+        LoadOptions options; try { options=new LoadOptions(LoadOptions.Mode.valueOf(prefs.get(MODE,LoadOptions.Mode.MOST_RECENT.name())),prefs.getInt(RECENT,10000),prefs.getInt(BUDGET,50000)); } catch(RuntimeException ex) { options=LoadOptions.defaults(); }
         return new Settings(registry,start,end,options);
     }
     private static LocalDate date(IPreferences p,String key,LocalDate fallback) { try { return LocalDate.parse(p.get(key,fallback.toString())); } catch(RuntimeException e) { return fallback; } }

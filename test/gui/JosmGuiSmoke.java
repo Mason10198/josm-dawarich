@@ -37,10 +37,13 @@ public class JosmGuiSmoke {
   Object plugin=PluginHandler.getPlugin("dawarich");Object registry=field(plugin,"registry"), task=field(plugin,"task"), action=field(plugin,"action");Method pm=action.getClass().getDeclaredMethod("panel");pm.setAccessible(true);Object panel=pm.invoke(action);
   edt(()->{try{
    var rows=(java.util.List<?>)call(registry,"rows",new Class<?>[]{});Object a=rows.get(0);String idA=(String)a.getClass().getField("id").get(a);Object b=call(registry,"add",new Class<?>[]{String.class},"Synthetic B");String idB=(String)b.getClass().getField("id").get(b);
-   String endpoint="http://127.0.0.1:"+server.getAddress().getPort();call(registry,"setEndpoint",new Class<?>[]{String.class,boolean.class},endpoint,true);call(registry,"setKey",new Class<?>[]{String.class,String.class},idA,"synthetic-A");call(registry,"setKey",new Class<?>[]{String.class,String.class},idB,"synthetic-B");
+   String endpoint="http://127.0.0.1:"+server.getAddress().getPort();call(registry,"setEndpoint",new Class<?>[]{String.class,boolean.class},endpoint,true);call(registry,"setKey",new Class<?>[]{String.class,String.class},idB,"synthetic-B");
    ((JTextField)call(panel,"serverField",new Class<?>[]{})).setText(endpoint);((JCheckBox)call(panel,"httpCheckBox",new Class<?>[]{})).setSelected(true);
+   ((JPasswordField)call(panel,"apiKeyField",new Class<?>[]{})).setText("synthetic-A");
+   ClassLoader loader=plugin.getClass().getClassLoader();Class<?> options=loader.loadClass("org.openstreetmap.josm.plugins.dawarich.LoadOptions"),mode=loader.loadClass("org.openstreetmap.josm.plugins.dawarich.LoadOptions$Mode");call(panel,"setLoadOptions",new Class<?>[]{options},options.getConstructor(mode,int.class,int.class).newInstance(mode.getField("DATE_RANGE").get(null),10000,50000));
    MainApplication.getLayerManager().addLayer(new OsmDataLayer(new DataSet(),"Synthetic empty editing layer",null));MainApplication.getMap().mapView.zoomTo(new Bounds(-0.01,-0.01,0.01,0.01));
    ((javax.swing.Action)action).actionPerformed(new ActionEvent(action,0,"smoke"));
+   boolean found=false;for(int i=0;i<MainApplication.getMenu().imageryMenu.getItemCount();i++){JMenuItem item=MainApplication.getMenu().imageryMenu.getItem(i);if(item!=null&&item.getAction()==action&&item.isVisible())found=item.getText().contains("Check alignment");}require(found,"No discoverable Imagery menu command");
   }catch(Exception e){throw new RuntimeException(e);}});
   Thread.sleep(1000);edt(()->{try{((JButton)call(panel,"loadButton",new Class<?>[]{})).doClick();}catch(Exception e){throw new RuntimeException(e);}});
   long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(12);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(50);
@@ -98,6 +101,39 @@ public class JosmGuiSmoke {
   require(recentStatus.get().contains(expectedCoverageDate),"Actual recorded coverage absent from status");
   System.out.println("SMOKE_RECENT_LOAD=true; REQUESTED_PER_SOURCE=3; RETURNED_COUNTS=3,2; ORIGINAL_NEWEST_IDS=true; ALL_HISTORY=true; DATES_IGNORED=true; COVERAGE_VISIBLE=true");
   javax.imageio.ImageIO.write(new Robot().createScreenCapture(new Rectangle(0,0,1280,900)),"png",Path.of(System.getProperty("smoke.out"),"synthetic-recent.png").toFile());
+
+  // Pause a real partial response. Progress must move before a complete source is published.
+  server.removeContext("/api/v1/points");CountDownLatch partialSent=new CountDownLatch(1),releaseBody=new CountDownLatch(1);
+  server.createContext("/api/v1/points",exchange->{
+   requests.incrementAndGet();long recorded=java.time.Instant.now().minusSeconds(60).getEpochSecond();StringBuilder json=new StringBuilder("[");
+   for(int i=7;i>0;i--){if(i<7)json.append(',');json.append("{\"id\":").append(100+i).append(",\"latitude\":0.001,\"longitude\":0.001,\"timestamp\":").append(recorded).append('}');}
+   byte[] bytes=json.append(']').toString().getBytes(StandardCharsets.UTF_8);exchange.getResponseHeaders().set("Content-Type","application/json");exchange.getResponseHeaders().set("X-Current-Page","1");exchange.getResponseHeaders().set("X-Total-Pages","1");exchange.sendResponseHeaders(200,bytes.length);
+   try(var out=exchange.getResponseBody()){int half=bytes.length/2;out.write(bytes,0,half);out.flush();partialSent.countDown();try{if(!releaseBody.await(8,TimeUnit.SECONDS))throw new java.io.IOException("Synthetic pause expired");}catch(InterruptedException e){Thread.currentThread().interrupt();throw new java.io.IOException(e);}out.write(bytes,half,bytes.length-half);}
+  });
+  var settings=(java.util.List<?>)call(registry,"rows",new Class<?>[]{});String secondId=(String)settings.get(1).getClass().getField("id").get(settings.get(1));
+  Map<Object,Object> previousDatasets=new HashMap<>();for(Object layer:recentOwned.values())previousDatasets.put(layer,field(layer,"dataset"));
+  edt(()->{try{call(registry,"setEnabled",new Class<?>[]{String.class,boolean.class},secondId,false);MainApplication.getMap().mapView.zoomTo(new Bounds(-0.01,-0.01,0.01,0.01));((JButton)call(panel,"loadButton",new Class<?>[]{})).doClick();}catch(Exception e){throw new RuntimeException(e);}});
+  require(partialSent.await(5,TimeUnit.SECONDS),"Slow response never began");Thread.sleep(450);
+  Object snapshot=call(task,"progress",new Class<?>[]{});require(snapshot!=null&&(long)call(snapshot,"downloadedBytes",new Class<?>[]{})>0,"Received bytes absent before completion");
+  AtomicReference<String> firstProgress=new AtomicReference<>(),laterProgress=new AtomicReference<>();
+  edt(()->{try{firstProgress.set(((JLabel)call(panel,"progressLabel",new Class<?>[]{})).getText());}catch(Exception e){throw new RuntimeException(e);}});Thread.sleep(1100);
+  long ping=System.nanoTime();edt(()->{try{laterProgress.set(((JLabel)call(panel,"progressLabel",new Class<?>[]{})).getText());require(((JButton)call(panel,"cancelButton",new Class<?>[]{})).isEnabled(),"Stop unavailable during transfer");}catch(Exception e){throw new RuntimeException(e);}});long pingMillis=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-ping);
+  require(pingMillis<500,"EDT did not respond during slow transfer");require(!firstProgress.get().equals(laterProgress.get())&&laterProgress.get().contains("received"),"Visible progress did not change before completion");require((boolean)call(task,"isLoading",new Class<?>[]{}),"Slow transfer completed prematurely");
+  for(var entry:previousDatasets.entrySet())require(field(entry.getKey(),"dataset")==entry.getValue(),"Partial response replaced a valid layer");
+  javax.imageio.ImageIO.write(new Robot().createScreenCapture(new Rectangle(0,0,1280,900)),"png",Path.of(System.getProperty("smoke.out"),"synthetic-progress.png").toFile());releaseBody.countDown();
+  deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(30);
+  require(!(boolean)call(task,"isLoading",new Class<?>[]{}),"Slow transfer did not finish");require(requests.get()==5,"Progress sampling made extra HTTP requests");require(!((javax.swing.Timer)field(action,"progressTimer")).isRunning(),"Progress timer survived completion");
+  System.out.println("SMOKE_PROGRESS=true; VISIBLE_BEFORE_COMPLETE=true; PARTIAL_NOT_PUBLISHED=true; EDT_PING_MS="+pingMillis+"; EXTRA_REQUESTS=0; TIMER_STOPPED=true; IMAGERY_MENU=true; DIRECT_KEY_ENTRY=true");
+
+  // Closing a stalled transfer must cancel, clear editor copies, stop sampling, and keep old data.
+  server.removeContext("/api/v1/points");CountDownLatch stalled=new CountDownLatch(1),releaseStall=new CountDownLatch(1);
+  server.createContext("/api/v1/points",exchange->{requests.incrementAndGet();stalled.countDown();try{releaseStall.await(8,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}finally{exchange.close();}});
+  Map<Object,Object> beforeCancel=new HashMap<>();for(Object layer:((Map<?,?>)call(task,"layersSnapshot",new Class<?>[]{})).values())beforeCancel.put(layer,field(layer,"dataset"));
+  edt(()->{try{((JButton)call(panel,"loadButton",new Class<?>[]{})).doClick();}catch(Exception e){throw new RuntimeException(e);}});require(stalled.await(5,TimeUnit.SECONDS),"Cancellation fixture never started");
+  edt(()->{try{((JPasswordField)call(panel,"apiKeyField",new Class<?>[]{})).setText("synthetic-uncommitted-editor");((JButton)call(panel,"closeButton",new Class<?>[]{})).doClick();require(!((Window)field(action,"window")).isVisible(),"Close did not hide window");require(!((javax.swing.Timer)field(action,"progressTimer")).isRunning(),"Timer survived close");require(((JPasswordField)call(panel,"apiKeyField",new Class<?>[]{})).getPassword().length==0,"Close retained password editor text");}catch(Exception e){throw new RuntimeException(e);}});
+  deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(30);releaseStall.countDown();require(!(boolean)call(task,"isLoading",new Class<?>[]{}),"Close did not cancel stalled transfer");for(var entry:beforeCancel.entrySet())require(field(entry.getKey(),"dataset")==entry.getValue(),"Cancelled transfer replaced old data");
+  edt(()->{((javax.swing.Action)action).actionPerformed(new ActionEvent(action,0,"reopen"));});require(requests.get()==6,"Reopening downloaded automatically");require(!((javax.swing.Timer)field(action,"progressTimer")).isRunning(),"Reopening restarted idle sampling");
+  System.out.println("SMOKE_CLOSE_CANCEL=true; PASSWORD_EDITOR_CLEARED=true; OLD_LAYERS_RETAINED=true; IDLE_REOPEN_REQUESTS=0");
 
   if(Boolean.getBoolean("smoke.render")){
   int measuredPoints=Integer.getInteger("smoke.points",50000);

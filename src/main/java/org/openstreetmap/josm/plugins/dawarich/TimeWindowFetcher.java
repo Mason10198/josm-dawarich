@@ -18,10 +18,12 @@ public final class TimeWindowFetcher {
         while(!stack.isEmpty()){
             budget.check();Window w=stack.pop();DawarichClient.Page p=actual.fetch(w.a,w.b);budget.check();
             if(p.totalPages()>1){if(w.a==w.b)throw protocol("Too many points within one second; narrow the area");long m=w.a+(w.b-w.a)/2;stack.push(new Window(m+1,w.b));stack.push(new Window(w.a,m));continue;}
+
             for(ReferencePoint point:p.points()){
                 budget.check();if(point.timestamp()<w.a||point.timestamp()>w.b||point.timestamp()<bounds.startInclusive().getEpochSecond()||point.timestamp()>bounds.endInclusive().getEpochSecond()||point.latitude()<bounds.minLat()||point.latitude()>bounds.maxLat()||point.longitude()<bounds.minLon()||point.longitude()>bounds.maxLon())throw protocol("Point outside requested bounds");
                 if(!ids.add(point.id()))throw protocol("Duplicate point identifier");if(result.size()>=quota)throw new DawarichException(DawarichException.Category.CAPACITY,"Point limit exceeded; narrow the area or dates, or raise the total point budget");result.add(point);
             }
+            budget.setSelectedPointCount(result.size());
         }
         return new ReferenceDataset(serverIdentity,sourceId,bounds,result);
     }

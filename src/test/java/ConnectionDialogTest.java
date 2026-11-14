@@ -68,7 +68,9 @@ class ConnectionDialogTest {
 
     @Test void editingKeyUsesBlankPasswordFieldAndChangesOnlySelectedSource() throws Exception {
         onEdt(() -> {
-            SourceRegistry r = registryWithThreeKeys();
+            SourceRegistry r = new SourceRegistry();
+            r.setEndpoint("https://old.example", false);
+            for (int i = 1; i <= 3; i++) { SourceSettings source = r.add("Source " + i); r.setKey(source.id, "secret-key-" + i); }
             LoadReferenceDialog d = new LoadReferenceDialog(r);
             JTable t = d.sourceTable();
             assertTrue(t.editCellAt(0, 2));

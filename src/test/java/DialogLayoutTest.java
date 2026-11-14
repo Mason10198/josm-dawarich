@@ -32,7 +32,7 @@ class DialogLayoutTest {
                 assertTrue(bounds.width > 0 && bounds.height > 0, child + " has empty geometry");
                 assertTrue(new Rectangle(0, 0, dialog.getWidth(), dialog.getHeight()).contains(bounds), child + " is clipped");
             }
-            assertEquals("Load this view", dialog.loadButton().getText());
+            assertEquals("Load GPS for this area", dialog.loadButton().getText());
         });
     }
 

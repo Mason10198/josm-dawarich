@@ -15,7 +15,7 @@ class DialogValidationTest {
 
     @Test void invalidDateShowsSanitizedStatusWithoutCallbackOrThrow() throws Exception {edt(()->{
         SourceRegistry r=readyRegistry();LoadReferenceDialog d=new LoadReferenceDialog(r);dates(d);d.startDateField().setText("not-a-date");AtomicInteger calls=new AtomicInteger();d.setLoadHandler(x->calls.incrementAndGet());
-        assertDoesNotThrow(()->d.loadButton().doClick());assertEquals(0,calls.get());assertEquals("Invalid connection, dates, point settings, or enabled-source credentials",d.statusLabel().getText());
+        assertDoesNotThrow(()->d.loadButton().doClick());assertEquals(0,calls.get());assertEquals("Enter dates in YYYY-MM-DD format.",d.statusLabel().getText());
     });}
     @Test void destinationKeyEditInvalidatesAllOtherKeysBeforeLoad() throws Exception {edt(()->{
         SourceRegistry r=readyRegistry();LoadReferenceDialog d=new LoadReferenceDialog(r);dates(d);d.serverField().setText("https://new.example");
@@ -26,11 +26,11 @@ class DialogValidationTest {
     });}
     @Test void changedDestinationWithoutFreshKeyCannotLoad() throws Exception {edt(()->{
         SourceRegistry r=readyRegistry();LoadReferenceDialog d=new LoadReferenceDialog(r);dates(d);d.serverField().setText("https://new.example");AtomicInteger calls=new AtomicInteger();d.setLoadHandler(x->calls.incrementAndGet());d.loadButton().doClick();
-        assertEquals(0,calls.get());for(SourceSettings s:r.rows())assertNull(r.session(s.id).snapshot().apiKey());assertTrue(d.statusLabel().getText().contains("Invalid connection"));
+        assertEquals(0,calls.get());for(SourceSettings s:r.rows())assertNull(r.session(s.id).snapshot().apiKey());assertTrue(d.statusLabel().getText().contains("API key"));
     });}
     @Test void constructorDatesAndCancelClearEditorButKeepSessionKey() throws Exception {edt(()->{
-        SourceRegistry r=readyRegistry();LocalDate a=LocalDate.of(2024,2,3),b=LocalDate.of(2024,2,4);LoadReferenceDialog d=new LoadReferenceDialog(r,a,b);assertEquals(a.toString(),d.startDateField().getText());assertEquals(b.toString(),d.endDateField().getText());
+        SourceRegistry r=readyRegistry();r.setEndpoint("https://old.example",false);LocalDate a=LocalDate.of(2024,2,3),b=LocalDate.of(2024,2,4);LoadReferenceDialog d=new LoadReferenceDialog(r,a,b);assertEquals(a.toString(),d.startDateField().getText());assertEquals(b.toString(),d.endDateField().getText());
         JTable t=d.sourceTable();assertTrue(t.editCellAt(0,2));JPasswordField p=(JPasswordField)t.getEditorComponent();p.setText("transient");AtomicInteger calls=new AtomicInteger();d.setCancelHandler(calls::incrementAndGet);
-        JButton cancel=null;for(java.awt.Component c:((JPanel)d.getComponent(2)).getComponents())if(c instanceof JButton j&&j.getText().equals("Cancel"))cancel=j;assertNotNull(cancel);cancel.doClick();assertEquals(1,calls.get());assertFalse(t.isEditing());assertEquals(0,p.getPassword().length);assertEquals("old-key-0",r.session(r.rows().get(0).id).snapshot().apiKey());
+        d.setLoading(true);assertTrue(d.cancelButton().isEnabled());JButton cancel=d.cancelButton();cancel.doClick();assertEquals(1,calls.get());assertFalse(t.isEditing());assertEquals(0,p.getPassword().length);assertEquals("old-key-0",r.session(r.rows().get(0).id).snapshot().apiKey());
     });}
 }

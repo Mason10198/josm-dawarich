@@ -21,7 +21,10 @@ public final class LoadReferenceAction extends JosmAction {
     private final LoadReferenceDialog panel;
     private JDialog window;
     private boolean disposed;
+    private boolean stopping;
     private BooleanSupplier loadingCheck = () -> false;
+    private Supplier<LoadProgress> progressSource;
+    private final javax.swing.Timer progressTimer=new javax.swing.Timer(200,e->refreshProgress());
 
     public LoadReferenceAction(SourceRegistry registry, LoadReferenceTask task, LocalDate start, LocalDate end) {
         this(() -> {
@@ -33,6 +36,7 @@ public final class LoadReferenceAction extends JosmAction {
                 "This view covers more than 100 miles. Load it anyway?", "Large reference-data area",
                 JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)==JOptionPane.YES_OPTION,
             task::start, task::cancel, task::isLoading, new LoadReferenceDialog(registry,start,end));
+        progressSource=task::progress;
     }
     LoadReferenceAction(Supplier<Viewport> views, Predicate<QueryBounds> confirm,
                         Function<QueryBounds, ?> starter, Runnable cancel, BooleanSupplier loading,
@@ -41,34 +45,45 @@ public final class LoadReferenceAction extends JosmAction {
             "Load reference data for the current view", null, false, "dawarich-load", false);
         this.viewSupplier=views; this.confirm=confirm; this.starter=starter; this.cancel=cancel;
         this.loadingCheck=loading; this.panel=panel;
-        panel.setLoadHandler(this::load); panel.setCancelHandler(cancel);
+        progressTimer.setCoalesce(true);
+        panel.setLoadHandler(this::load); panel.setCancelHandler(this::stopDownload);
+        panel.setCloseHandler(this::closeWindow);
     }
     @Override public void actionPerformed(java.awt.event.ActionEvent e) {
         if(disposed)return;
-        if(window==null){window=new JDialog(MainApplication.getMainFrame(),"Dawarich reference data",false);
+        if(window==null){window=new JDialog(MainApplication.getMainFrame(),"Check imagery alignment with Dawarich GPS",false);
             window.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-            window.addWindowListener(new java.awt.event.WindowAdapter(){@Override public void windowClosing(java.awt.event.WindowEvent e){panel.clearSecretEditors();cancel.run();window.setVisible(false);}});
-            window.setContentPane(panel);window.setSize(620,430);window.setLocationRelativeTo(MainApplication.getMainFrame());}
+            window.addWindowListener(new java.awt.event.WindowAdapter(){@Override public void windowClosing(java.awt.event.WindowEvent e){closeWindow();}});
+            window.setContentPane(panel);window.setMinimumSize(new java.awt.Dimension(680,520));window.setSize(740,700);window.setLocationRelativeTo(MainApplication.getMainFrame());}
         window.setVisible(true);
+        if(loadingCheck.getAsBoolean())beginProgress();
     }
+    private void stopDownload(){boolean wasLoading=loadingCheck.getAsBoolean();stopping=wasLoading;cancel.run();progressTimer.stop();panel.setLoading(false);panel.loadButton().setEnabled(!loadingCheck.getAsBoolean());if(wasLoading)panel.progressLabel().setText("Stopping download…");}
+    private void closeWindow(){stopDownload();panel.clearSecretEditors();if(window!=null)window.setVisible(false);}
+    private void beginProgress(){if(stopping)return;panel.setLoading(true);if(progressSource!=null&&(window==null||window.isVisible())){progressTimer.start();refreshProgress();}}
+    private void refreshProgress(){if(disposed||progressSource==null||!progressTimer.isRunning()||!loadingCheck.getAsBoolean())return;LoadProgress progress=progressSource.get();if(progress!=null)panel.updateProgress(progress);}
+    void setProgressSource(Supplier<LoadProgress> source){progressSource=Objects.requireNonNull(source);}
+    boolean progressTimerRunning(){return progressTimer.isRunning();}
     void load(LoadReferenceDialog.LoadRequest request) {
         if(disposed)return;
         panel.clearSecretEditors();
         if(loadingCheck.getAsBoolean()){panel.loadButton().setEnabled(false);panel.statusLabel().setText("A load is already in progress");return;}
         Viewport v=viewSupplier.get();
-        if(v==null||v.width()<=0||v.height()<=0){panel.statusLabel().setText("Open a map view before loading reference data");return;}
+        if(v==null||v.width()<=0||v.height()<=0){panel.statusLabel().setText("Open a map view before loading reference data; add aerial imagery and zoom to the area you want to check");return;}
         final QueryBounds query;
         try { query=(request.options.mode()==LoadOptions.Mode.MOST_RECENT ? QueryBounds.mostRecent(Math.min(v.top(),v.bottom()),Math.max(v.top(),v.bottom()),v.left(),v.right(),request.timezone,Instant.now()) : new QueryBounds(Math.min(v.top(),v.bottom()),Math.max(v.top(),v.bottom()),v.left(),v.right(),request.startDate,request.endDate,request.timezone,Instant.now())).withOptions(request.options); }
         catch(RuntimeException ex){panel.statusLabel().setText("Invalid view bounds or date range; no request started");return;}
         if(query.broadAreaNeedsConfirmation()&&!confirm.test(query)){panel.statusLabel().setText("Load cancelled; no request started");return;}
-        panel.loadButton().setEnabled(false);panel.statusLabel().setText("Loading reference data…");
-        try{starter.apply(query);}catch(RuntimeException ex){panel.loadButton().setEnabled(true);panel.statusLabel().setText("Could not start load");}
+        stopping=false;beginProgress();panel.statusLabel().setText("Loading GPS for this map area…");
+        try{starter.apply(query);}catch(RuntimeException ex){progressTimer.stop();panel.setLoading(false);panel.statusLabel().setText("Could not start load; check the connection and selected GPS sources");}
     }
     public void showResult(LoadReferenceTask.BatchResult result) {
         if(disposed)return;
-        StringBuilder text=new StringBuilder("<html>").append(escape(result.status().toString())).append(" — ").append(result.totalPoints()).append(" points; fair per-source quota ").append(result.perSourceQuota());
+        if(result.status()==LoadReferenceTask.Status.LOADING){if(stopping)return;beginProgress();}else{stopping=false;progressTimer.stop();panel.setLoading(false);}
+        String title=switch(result.status()){case COMPLETE->"GPS ready to compare with imagery";case PARTIAL->"Some GPS sources loaded";case FAILED->"GPS could not be loaded";case CANCELLED->"Download stopped";case LOADING->"Loading GPS history…";default->"GPS reference";};
+        StringBuilder text=new StringBuilder("<html><body style='width:440px'>").append(title).append(" — ").append(result.totalPoints()).append(" points in GPS layers");
         for(var source:result.sources()){
-            text.append("<br>").append(escape(panel.sourceLabel(source.sourceId()))).append(": ").append(escape(source.status().toString()));
+            text.append("<br>").append(escape(panel.sourceLabel(source.sourceId()))).append(": ").append(switch(source.status()){case COMPLETE->"Ready";case FAILED->"Could not load";case CANCELLED->"Stopped";case SKIPPED->"Not loaded";case LOADING->"Downloading";case PARTIAL->"Partly loaded";case IDLE->"Waiting";});
             if(source.status()==LoadReferenceTask.Status.FAILED||source.status()==LoadReferenceTask.Status.SKIPPED||source.status()==LoadReferenceTask.Status.CANCELLED)
                 text.append(" — ").append(escape(safeFailureReason(source.message())));
             if(source.pointCount()>0)text.append(" (").append(source.pointCount()).append(" points)");
@@ -85,7 +100,7 @@ public final class LoadReferenceAction extends JosmAction {
             if(source.stale()&&source.pointCount()>0)text.append(" — old layer retained");
         }
         if(!result.overlappingIds().isEmpty())text.append("; ").append(result.overlappingIds().size()).append(" overlapping point IDs across sources; keys may refer to the same account. Layers kept separate.");
-        panel.statusLabel().setText(text.append("</html>").toString());
+        panel.statusLabel().setText(text.append("</body></html>").toString());
         panel.loadButton().setEnabled(result.status()!=LoadReferenceTask.Status.LOADING&&!loadingCheck.getAsBoolean());
     }
     /** Only fixed local diagnostics are displayable; never expose raw exception/HTTP text. */
@@ -115,6 +130,6 @@ public final class LoadReferenceAction extends JosmAction {
     }
     private static String escape(String s){return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
     public void setLoadingCheck(BooleanSupplier check){loadingCheck=Objects.requireNonNull(check);}
-    public void dispose(){if(disposed)return;disposed=true;panel.clearSecretEditors();if(window!=null)window.dispose();super.destroy();}
+    public void dispose(){if(disposed)return;disposed=true;progressTimer.stop();panel.setLoading(false);panel.clearSecretEditors();if(window!=null)window.dispose();super.destroy();}
     LoadReferenceDialog panel(){return panel;}
 }

@@ -71,6 +71,7 @@ public final class MostRecentFetcher {
                 if (!ids.add(point.id())) throw protocol("Duplicate point identifier");
                 result.add(point);
             }
+            budget.setSelectedPointCount(result.size());
         }
         return new ReferenceDataset(server, sourceId, bounds, result);
     }
