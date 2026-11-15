@@ -43,7 +43,8 @@ public class JosmGuiSmoke {
    ClassLoader loader=plugin.getClass().getClassLoader();Class<?> options=loader.loadClass("org.openstreetmap.josm.plugins.dawarich.LoadOptions"),mode=loader.loadClass("org.openstreetmap.josm.plugins.dawarich.LoadOptions$Mode");call(panel,"setLoadOptions",new Class<?>[]{options},options.getConstructor(mode,int.class,int.class).newInstance(mode.getField("DATE_RANGE").get(null),10000,50000));
    MainApplication.getLayerManager().addLayer(new OsmDataLayer(new DataSet(),"Synthetic empty editing layer",null));MainApplication.getMap().mapView.zoomTo(new Bounds(-0.01,-0.01,0.01,0.01));
    ((javax.swing.Action)action).actionPerformed(new ActionEvent(action,0,"smoke"));
-   boolean found=false;for(int i=0;i<MainApplication.getMenu().imageryMenu.getItemCount();i++){JMenuItem item=MainApplication.getMenu().imageryMenu.getItem(i);if(item!=null&&item.getAction()==action&&item.isVisible())found=item.getText().contains("Check alignment");}require(found,"No discoverable Imagery menu command");
+   int gps=0;for(int i=0;i<MainApplication.getMenu().gpsMenu.getItemCount();i++){JMenuItem item=MainApplication.getMenu().gpsMenu.getItem(i);if(item!=null&&item.getAction()==action&&item.isVisible()&&item.getText().equals("Dawarich GPS…"))gps++;}require(gps==1,"Expected exactly one Dawarich GPS command");
+   for(int i=0;i<MainApplication.getMenu().imageryMenu.getItemCount();i++){JMenuItem item=MainApplication.getMenu().imageryMenu.getItem(i);require(item==null||item.getAction()!=action,"Duplicate Imagery menu command remains");}
   }catch(Exception e){throw new RuntimeException(e);}});
   Thread.sleep(1000);edt(()->{try{((JButton)call(panel,"loadButton",new Class<?>[]{})).doClick();}catch(Exception e){throw new RuntimeException(e);}});
   long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(12);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(50);
@@ -123,7 +124,7 @@ public class JosmGuiSmoke {
   javax.imageio.ImageIO.write(new Robot().createScreenCapture(new Rectangle(0,0,1280,900)),"png",Path.of(System.getProperty("smoke.out"),"synthetic-progress.png").toFile());releaseBody.countDown();
   deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(30);
   require(!(boolean)call(task,"isLoading",new Class<?>[]{}),"Slow transfer did not finish");require(requests.get()==5,"Progress sampling made extra HTTP requests");require(!((javax.swing.Timer)field(action,"progressTimer")).isRunning(),"Progress timer survived completion");
-  System.out.println("SMOKE_PROGRESS=true; VISIBLE_BEFORE_COMPLETE=true; PARTIAL_NOT_PUBLISHED=true; EDT_PING_MS="+pingMillis+"; EXTRA_REQUESTS=0; TIMER_STOPPED=true; IMAGERY_MENU=true; DIRECT_KEY_ENTRY=true");
+  System.out.println("SMOKE_PROGRESS=true; VISIBLE_BEFORE_COMPLETE=true; PARTIAL_NOT_PUBLISHED=true; EDT_PING_MS="+pingMillis+"; EXTRA_REQUESTS=0; TIMER_STOPPED=true; SINGLE_GPS_MENU=true; NO_DUPLICATE_IMAGERY_MENU=true; DIRECT_KEY_ENTRY=true");
 
   // Closing a stalled transfer must cancel, clear editor copies, stop sampling, and keep old data.
   server.removeContext("/api/v1/points");CountDownLatch stalled=new CountDownLatch(1),releaseStall=new CountDownLatch(1);
@@ -134,6 +135,7 @@ public class JosmGuiSmoke {
   deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);while((boolean)call(task,"isLoading",new Class<?>[]{})&&System.nanoTime()<deadline)Thread.sleep(30);releaseStall.countDown();require(!(boolean)call(task,"isLoading",new Class<?>[]{}),"Close did not cancel stalled transfer");for(var entry:beforeCancel.entrySet())require(field(entry.getKey(),"dataset")==entry.getValue(),"Cancelled transfer replaced old data");
   edt(()->{((javax.swing.Action)action).actionPerformed(new ActionEvent(action,0,"reopen"));});require(requests.get()==6,"Reopening downloaded automatically");require(!((javax.swing.Timer)field(action,"progressTimer")).isRunning(),"Reopening restarted idle sampling");
   System.out.println("SMOKE_CLOSE_CANCEL=true; PASSWORD_EDITOR_CLEARED=true; OLD_LAYERS_RETAINED=true; IDLE_REOPEN_REQUESTS=0");
+  verifyHeatmap(task,panel,requests);
 
   if(Boolean.getBoolean("smoke.render")){
   int measuredPoints=Integer.getInteger("smoke.points",50000);
@@ -161,6 +163,7 @@ public class JosmGuiSmoke {
    edt(()->{var view=MainApplication.getMap().mapView; java.awt.image.BufferedImage image=new java.awt.image.BufferedImage(view.getWidth(),view.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);var graphics=image.createGraphics();graphics.setClip(0,0,image.getWidth(),image.getHeight());try{for(int frame=0;frame<elapsed.length;frame++){view.zoomTo(view.getCenter().add(1,0),view.getScale()*1.0002);for(var layer:measured)layer.invalidate();long started=System.nanoTime();view.paint(graphics);elapsed[frame]=System.nanoTime()-started;}}finally{graphics.dispose();}});
    long[] warmed=java.util.Arrays.copyOfRange(elapsed,1,elapsed.length);java.util.Arrays.sort(warmed);long sum=0;for(long v:warmed)sum+=v;
    System.out.println("SMOKE_MAPVIEW_POINTS="+measuredPoints+"; SOURCES="+sourceCount+"; WARM_FRAMES="+warmed.length+"; MEAN_MS="+(sum/(double)warmed.length/1e6)+"; P95_MS="+(warmed[18]/1e6)+"; MAX_MS="+(warmed[19]/1e6)+"; FIRST_MS="+(elapsed[0]/1e6));
+   measureHeatmap(measured,measuredPoints,sourceCount);
    edt(()->{for(var layer:measured)MainApplication.getLayerManager().removeLayer(layer);});
   }
 
@@ -170,6 +173,29 @@ public class JosmGuiSmoke {
   require(MainApplication.getLayerManager().getEditDataSet().allPrimitives().isEmpty(),"Reference loading modified OSM data");
   edt(()->{try{call(plugin,"destroy",new Class<?>[]{});}catch(Exception e){throw new RuntimeException(e);}});
   require(((Map<?,?>)call(task,"layersSnapshot",new Class<?>[]{})).isEmpty(),"Shutdown did not release reference layers");System.out.println("SMOKE_OSM_UNCHANGED=true; SHUTDOWN_RELEASED=true");server.stop(0);System.exit(0);
+ }
+ static void paintView()throws Exception{edt(()->{var view=MainApplication.getMap().mapView;var image=new java.awt.image.BufferedImage(view.getWidth(),view.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);var graphics=image.createGraphics();graphics.setClip(0,0,image.getWidth(),image.getHeight());try{view.paint(graphics);}finally{graphics.dispose();}});}
+ static void awaitHeatmaps(java.util.List<?> layers)throws Exception{
+  long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(12);
+  while(System.nanoTime()<until){paintView();boolean ready=true;for(Object layer:layers)if((boolean)call(layer,"isVisible",new Class<?>[]{})&&!(boolean)call(layer,"isHeatmapReady",new Class<?>[]{}))ready=false;if(ready)return;Thread.sleep(25);}throw new AssertionError("Heatmap preparation timed out");
+ }
+ static void chooseView(Object panel,String name)throws Exception{Object selector=call(panel,"displayModeSelector",new Class<?>[]{});edt(()->{JComboBox<?> box=(JComboBox<?>)selector;for(int i=0;i<box.getItemCount();i++)if(((Enum<?>)box.getItemAt(i)).name().equals(name)){box.setSelectedIndex(i);return;}throw new AssertionError("Missing display mode");});}
+ static void verifyHeatmap(Object task,Object panel,AtomicInteger requests)throws Exception{
+  Map<?,?> layers=(Map<?,?>)call(task,"layersSnapshot",new Class<?>[]{});Map<Object,Object> original=new HashMap<>();for(Object layer:layers.values())original.put(layer,field(layer,"dataset"));int before=requests.get();
+  chooseView(panel,"HEATMAP");awaitHeatmaps(new ArrayList<>(layers.values()));Map<Object,Integer> builds=new HashMap<>();for(Object layer:layers.values())builds.put(layer,(int)call(layer,"getHeatmapBuildCount",new Class<?>[]{}));
+  for(int i=0;i<3;i++){edt(()->{for(Object layer:layers.values())((org.openstreetmap.josm.gui.layer.Layer)layer).invalidate();});paintView();}
+  for(Object layer:layers.values())require(builds.get(layer)==(int)call(layer,"getHeatmapBuildCount",new Class<?>[]{}),"Unchanged view recomputed density");
+  require(((JLabel)call(panel,"displayLegend",new Class<?>[]{})).getText().contains("Density is not accuracy"),"Heatmap legend is misleading");
+  javax.imageio.ImageIO.write(new Robot().createScreenCapture(new Rectangle(0,0,1280,900)),"png",Path.of(System.getProperty("smoke.out"),"synthetic-heatmap.png").toFile());
+  chooseView(panel,"BOTH");awaitHeatmaps(new ArrayList<>(layers.values()));edt(()->{var view=MainApplication.getMap().mapView;view.zoomTo(view.getCenter().add(50,0),view.getScale()*1.02);});awaitHeatmaps(new ArrayList<>(layers.values()));
+  for(Object layer:layers.values())if((boolean)call(layer,"isVisible",new Class<?>[]{}))require((int)call(layer,"getHeatmapBuildCount",new Class<?>[]{})>builds.get(layer),"Changed map view did not rebuild density");
+  chooseView(panel,"POINTS");for(Object layer:layers.values()){require(original.get(layer)==field(layer,"dataset"),"View switching changed original observations");require(!(boolean)call(layer,"isHeatmapReady",new Class<?>[]{}),"Points mode kept the derived cache");}require(requests.get()==before,"Heatmap triggered a download");
+  System.out.println("SMOKE_HEATMAP=true; ORIGINAL_DATA_UNCHANGED=true; EXTRA_REQUESTS=0; CACHE_REUSED=true; PAN_ZOOM_REBUILT=true; POINTS_RELEASED_CACHE=true");
+ }
+ static void measureHeatmap(java.util.List<org.openstreetmap.josm.gui.layer.Layer> layers,int points,int sources)throws Exception{
+  long began=System.nanoTime();edt(()->{try{for(Object layer:layers){Class<?> mode=layer.getClass().getClassLoader().loadClass("org.openstreetmap.josm.plugins.dawarich.DisplayMode");call(layer,"setDisplayMode",new Class<?>[]{mode},mode.getField("HEATMAP").get(null));}}catch(Exception e){throw new RuntimeException(e);}});awaitHeatmaps(layers);long prepare=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-began);
+  long[] timings=new long[20];edt(()->{var view=MainApplication.getMap().mapView;var image=new java.awt.image.BufferedImage(view.getWidth(),view.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);var g=image.createGraphics();g.setClip(0,0,image.getWidth(),image.getHeight());try{for(int i=0;i<timings.length;i++){for(var layer:layers)layer.invalidate();long start=System.nanoTime();view.paint(g);timings[i]=System.nanoTime()-start;}}finally{g.dispose();}});Arrays.sort(timings);long sum=0;for(long t:timings)sum+=t;
+  System.out.println("SMOKE_HEATMAP_POINTS="+points+"; SOURCES="+sources+"; PREPARE_MS="+prepare+"; WARM_MEAN_MS="+(sum/(double)timings.length/1e6)+"; WARM_P95_MS="+(timings[18]/1e6));
  }
  static void largeDownload(HttpServer server,Object registry,Object task,Object panel,Object plugin)throws Exception{
   server.removeContext("/api/v1/points");AtomicInteger calls=new AtomicInteger();AtomicLong bytesSent=new AtomicLong();CountDownLatch secondRequest=new CountDownLatch(1),resume=new CountDownLatch(1);long origin=java.time.Instant.now().minusSeconds(300000).getEpochSecond();

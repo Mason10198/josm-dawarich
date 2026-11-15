@@ -2,6 +2,15 @@
 
 Published artifacts and checksums are available from the GitHub releases page.
 
+## v0.5.0
+
+- Remove the duplicate Imagery-menu shortcut. Keep one **GPS → Dawarich GPS…** command and name the dialog honestly.
+- Add immediately usable Points / Heatmap / Both controls above the setup form. Switching displays uses loaded data, makes no HTTP requests, and saves only a non-secret display preference.
+- Show per-source, source-colored relative raw observation density with an explicit density-not-accuracy / stationary-logging warning. Original coordinates, timestamps, IDs, read-only layers and source separation are unchanged; Points remains the default.
+- Build bounded density grids and output rasters off the UI thread, reuse same-view caches, coalesce obsolete view requests, reject stale results, and clear derived state on Points, dataset/style changes and destruction.
+- Add actual-host menu, display-switch/no-refetch, cache reuse, pan/zoom invalidation and display-preference restart acceptance; retain the real 250,000-point download and remembered-key checks.
+- Accuracy filtering, stationary/pass normalization, automatic pan downloads and automatic imagery offsets remain unimplemented.
+
 ## v0.4.0
 
 - Replace saturated-page discard/bisection in both loaders with forward timestamp cursor traversal. Retain each complete page interior immediately; re-read only its boundary second to resolve timestamp ties safely, without offset pagination or guessed omissions.

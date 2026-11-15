@@ -4,7 +4,9 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.util.Objects;
+import org.openstreetmap.josm.gui.MapViewState;
 import javax.swing.Action;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -29,6 +31,17 @@ public final class DawarichLayer extends Layer {
     private final String sourceId;
     private volatile ReferenceDataset dataset;
     private volatile Color color;
+    private volatile DisplayMode displayMode = DisplayMode.POINTS;
+    private record HeatKey(ReferenceDataset data,Object projection,double east,double north,double scale,int width,int height,Color color){}
+    private record HeatCache(HeatKey key,BufferedImage image){}
+    private volatile HeatCache heatCache;
+    private volatile HeatKey wantedKey,failedKey;
+    private volatile int heatBuildCount;
+    private volatile long generation;
+    private final Object heatLock = new Object();
+    private HeatRequest pending;
+    private boolean workerRunning;
+    private record HeatRequest(ReferenceDataset data,MapViewState state,Color color,int width,int height,HeatKey key,long generation){}
 
     public DawarichLayer(ReferenceDataset dataset, String label, Color color) {
         super(Objects.requireNonNull(label));
@@ -49,13 +62,23 @@ public final class DawarichLayer extends Layer {
         if (!serverIdentity.equals(replacement.serverIdentity()) || !sourceId.equals(replacement.sourceId()))
             throw new IllegalArgumentException("Dataset identity does not match layer");
         dataset = replacement;
+        resetHeatmap();
         invalidate();
     }
 
     @Override public void paint(Graphics2D graphics, MapView mapView, org.openstreetmap.josm.data.Bounds bounds) {
         ReferenceDataset current = dataset;
-        if (current != null) paintPoints(graphics, p -> mapView.getPoint(new LatLon(p.latitude(), p.longitude())),
-                graphics.getClipBounds(), current.points(), color);
+        DisplayMode mode = displayMode;
+        if (current == null) return;
+        if (mode != DisplayMode.POINTS) {
+            MapViewState state=mapView.getState();BufferedImage image=heatmapFor(state);
+            if(image!=null){Graphics2D overlay=(Graphics2D)graphics.create();try{overlay.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);overlay.drawImage(image,0,0,(int)Math.ceil(state.getViewWidth()),(int)Math.ceil(state.getViewHeight()),null);}finally{overlay.dispose();}}
+            else {
+                graphics.setColor(new Color(0,0,0,150));
+                graphics.drawString(wantedKey!=null&&wantedKey.equals(failedKey)?"Heatmap unavailable for this view":"Preparing heatmap…",10,20);
+            }
+        }
+        if(mode==DisplayMode.POINTS||mode==DisplayMode.BOTH)paintPoints(graphics,p->mapView.getPoint(new LatLon(p.latitude(),p.longitude())),graphics.getClipBounds(),current.points(),color);
     }
 
     /** Package-visible production painter seam: projects fresh on every paint, never caches positions. */
@@ -70,10 +93,59 @@ public final class DawarichLayer extends Layer {
         }
     }
 
+    public synchronized void setDisplayMode(DisplayMode mode) {
+        if(dataset==null)return;
+        if(displayMode==mode)return;
+        displayMode = Objects.requireNonNull(mode);
+        if (mode == DisplayMode.POINTS) resetHeatmap();
+        invalidate();
+    }
+    public DisplayMode getDisplayMode() { return displayMode; }
+    public boolean isHeatmapReady(){HeatCache cache=heatCache;return displayMode!=DisplayMode.POINTS&&dataset!=null&&cache!=null&&cache.key.equals(wantedKey);}
+    public int getHeatmapBuildCount(){return heatBuildCount;}
+    BufferedImage heatmapFor(MapViewState state){
+        ReferenceDataset current=dataset;if(current==null||displayMode==DisplayMode.POINTS)return null;
+        int width=Math.max(1,(int)Math.ceil(state.getViewWidth())),height=Math.max(1,(int)Math.ceil(state.getViewHeight()));Color c=color;var center=state.getCenter().getEastNorth();
+        HeatKey key=new HeatKey(current,state.getProjection(),center.east(),center.north(),state.getScale(),width,height,c);
+        synchronized(heatLock){
+            if(current!=dataset||displayMode==DisplayMode.POINTS)return null;
+            wantedKey=key;HeatCache cache=heatCache;if(cache!=null&&cache.key.equals(key))return cache.image;
+            if(key.equals(failedKey))return null;
+            pending=new HeatRequest(current,state,c,width,height,key,generation);
+            if(!workerRunning){workerRunning=true;Thread worker=new Thread(this::heatWorker,"dawarich-heatmap");worker.setDaemon(true);worker.start();}
+        }
+        return null;
+    }
+    private void resetHeatmap() {
+        synchronized (heatLock) {
+            generation++;pending=null;heatCache=null;wantedKey=null;failedKey=null;
+        }
+    }
+    private boolean obsolete(HeatRequest request){return request.generation!=generation||request.data!=dataset||displayMode==DisplayMode.POINTS||!request.key.equals(wantedKey);}
+    private void heatWorker() {
+        while (true) {
+            HeatRequest request;
+            synchronized (heatLock) {
+                request = pending; pending = null;
+                if (request == null) { workerRunning = false; return; }
+            }
+            BufferedImage built;
+            try{built=HeatmapRenderer.render(request.data,request.state,request.color,request.width,request.height,()->obsolete(request));}
+            catch(java.util.concurrent.CancellationException ex){continue;}
+            catch(RuntimeException ex){synchronized(heatLock){if(!obsolete(request)){failedKey=request.key;pending=null;}}javax.swing.SwingUtilities.invokeLater(()->{if(!obsolete(request))invalidate();});continue;}
+            synchronized (heatLock) {
+                if (!obsolete(request)) {
+                    heatCache=new HeatCache(request.key,built);heatBuildCount++;if(pending!=null&&pending.key.equals(request.key))pending=null;
+                }
+            }
+            javax.swing.SwingUtilities.invokeLater(()->{if(!obsolete(request))invalidate();});
+        }
+    }
+
     @Override public Icon getIcon() { return new ImageProvider("dawarich").setDirs(java.util.List.of("/images")).get(); }
     @Override public boolean hasColor() { return true; }
     @Override public synchronized Color getColor() { return color; }
-    @Override public synchronized void setColor(Color color) { this.color = Objects.requireNonNull(color); invalidate(); }
+    @Override public synchronized void setColor(Color color) { this.color = Objects.requireNonNull(color); resetHeatmap(); invalidate(); }
     @Override public String getToolTipText() { return getName() + " — " + pointCount() + " reference points"; }
     @Override public Object getInfoComponent() { return new JLabel(getToolTipText()); }
     @Override public Action[] getMenuEntries() {
@@ -111,5 +183,5 @@ public final class DawarichLayer extends Layer {
     }
     @Override public boolean isSavable() { return false; }
     @Override public boolean checkSaveConditions() { return false; }
-    @Override public synchronized void destroy() { dataset = null; super.destroy(); }
+    @Override public synchronized void destroy(){dataset=null;resetHeatmap();super.destroy();}
 }
