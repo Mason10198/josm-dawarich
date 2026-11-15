@@ -15,7 +15,7 @@ public final class DawarichPlugin extends Plugin {
     private final LoadReferenceTask task;
     private final LoadReferenceAction action;
     private final JMenuItem menuItem;
-    private final JMenuItem imageryMenuItem;
+
     public DawarichPlugin(PluginInformation info) {
         super(info);
         ConnectionPreferences.Settings settings=ConnectionPreferences.load(Config.getPref(),new SavedApiKeys(org.openstreetmap.josm.io.auth.CredentialsManager.getInstance(),Config.getPref()));
@@ -23,8 +23,10 @@ public final class DawarichPlugin extends Plugin {
         task=new LoadReferenceTask(registry,MainApplication.getLayerManager(),MainApplication.worker);
         action=new LoadReferenceAction(registry,task,settings.startDate(),settings.endDate()); action.panel().setLoadOptions(settings.options());
         menuItem=MainMenu.add(MainApplication.getMenu().gpsMenu,action);
-        imageryMenuItem=MainMenu.add(MainApplication.getMenu().imageryMenu,action);
-        imageryMenuItem.setText("Check alignment with Dawarich GPS…");
+        DisplayMode display;
+        try{display=DisplayMode.valueOf(Config.getPref().get("dawarich.displayMode",DisplayMode.POINTS.name()));}catch(RuntimeException ex){display=DisplayMode.POINTS;}
+        task.setDisplayMode(display);action.panel().setDisplayMode(display);
+        action.panel().setDisplayModeHandler(value->{task.setDisplayMode(value);Config.getPref().put("dawarich.displayMode",value.name());});
         task.setListener(result->action.showResult(result));
         registry.addChangeListener(change->saveConfiguration());
         if(registry.credentialWarning()!=null)action.panel().statusLabel().setText(registry.credentialWarning());
@@ -40,6 +42,6 @@ public final class DawarichPlugin extends Plugin {
     public void destroy(){
         try { LoadReferenceDialog p=action.panel(); LocalDate a=LocalDate.parse(p.startDateField().getText()),b=LocalDate.parse(p.endDateField().getText()); if(b.isBefore(a)||b.isAfter(LocalDate.now()))throw new IllegalArgumentException(); ConnectionPreferences.save(Config.getPref(),registry,a,b,p.loadOptions()); } catch(RuntimeException ignored) { try { LoadReferenceDialog p=action.panel(); var saved=ConnectionPreferences.load(Config.getPref()); ConnectionPreferences.save(Config.getPref(),registry,saved.startDate(),saved.endDate(),p.loadOptions()); }
         catch(RuntimeException fallbackFailure) { /* retain safe saved date metadata */ } }
-        action.dispose();task.close();MainApplication.getMenu().gpsMenu.remove(menuItem);MainApplication.getMenu().imageryMenu.remove(imageryMenuItem);
+        action.dispose();task.close();MainApplication.getMenu().gpsMenu.remove(menuItem);
     }
 }

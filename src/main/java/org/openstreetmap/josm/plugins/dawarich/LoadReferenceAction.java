@@ -41,7 +41,7 @@ public final class LoadReferenceAction extends JosmAction {
     LoadReferenceAction(Supplier<Viewport> views, Predicate<QueryBounds> confirm,
                         Function<QueryBounds, ?> starter, Runnable cancel, BooleanSupplier loading,
                         LoadReferenceDialog panel) {
-        super("Load Dawarich reference…", new ImageProvider("dawarich").setDirs(java.util.List.of("/images")),
+        super("Dawarich GPS…", new ImageProvider("dawarich").setDirs(java.util.List.of("/images")),
             "Load reference data for the current view", null, false, "dawarich-load", false);
         this.viewSupplier=views; this.confirm=confirm; this.starter=starter; this.cancel=cancel;
         this.loadingCheck=loading; this.panel=panel;
@@ -51,7 +51,7 @@ public final class LoadReferenceAction extends JosmAction {
     }
     @Override public void actionPerformed(java.awt.event.ActionEvent e) {
         if(disposed)return;
-        if(window==null){window=new JDialog(MainApplication.getMainFrame(),"Check imagery alignment with Dawarich GPS",false);
+        if(window==null){window=new JDialog(MainApplication.getMainFrame(),"Dawarich GPS",false);
             window.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
             window.addWindowListener(new java.awt.event.WindowAdapter(){@Override public void windowClosing(java.awt.event.WindowEvent e){closeWindow();}});
             window.setContentPane(panel);window.setMinimumSize(new java.awt.Dimension(680,520));window.setSize(740,700);window.setLocationRelativeTo(MainApplication.getMainFrame());}

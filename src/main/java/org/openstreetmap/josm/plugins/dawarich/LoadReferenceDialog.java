@@ -28,6 +28,9 @@ public final class LoadReferenceDialog extends JPanel {
     private final JPasswordField apiKey=new JPasswordField(24);
     private final JLabel keyFor=new JLabel(),keyState=new JLabel(),status=new JLabel(" "),progressLabel=new JLabel(" ");
     private final JComboBox<LoadOptions.Mode> mode=new JComboBox<>(LoadOptions.Mode.values());
+    private final JComboBox<DisplayMode> displayMode=new JComboBox<>(DisplayMode.values());
+    private final JLabel displayLegend=new JLabel();
+    private Consumer<DisplayMode> displayModeHandler;
     private final JSpinner recentCount=new JSpinner(new SpinnerNumberModel(10000,1,LoadOptions.MAX_TOTAL_POINTS,1000));
     private final JSpinner totalBudget=new JSpinner(new SpinnerNumberModel(50000,1,LoadOptions.MAX_TOTAL_POINTS,1000));
     private final JCheckBox http=new JCheckBox("Allow unencrypted HTTP (trusted servers only)");
@@ -68,7 +71,11 @@ public final class LoadReferenceDialog extends JPanel {
                 return super.getListCellRendererComponent(list,value==LoadOptions.Mode.MOST_RECENT?"Most recent points (recommended)":"Date range",index,selected,focus);
             }
         });
-        add(new JLabel("<html><b>Check aerial imagery alignment with your GPS</b><br>Open aerial imagery in JOSM, zoom to the area you want to check, then load GPS below.</html>"),BorderLayout.NORTH);
+        JPanel heading=new JPanel(new BorderLayout(4,4));
+        heading.add(new JLabel("<html><b>Dawarich GPS</b><br>Open imagery, zoom to your area, and load GPS observations to compare.</html>"),BorderLayout.NORTH);
+        JPanel displayPanel=new JPanel(new GridBagLayout());displayPanel.setBorder(BorderFactory.createTitledBorder("View loaded GPS — no new download"));
+        addRow(displayPanel,0,new JLabel("Show"),displayMode);addRow(displayPanel,1,displayLegend,null);heading.add(displayPanel,BorderLayout.CENTER);add(heading,BorderLayout.NORTH);
+        displayMode.addActionListener(e->{updateDisplayLegend();if(displayModeHandler!=null)displayModeHandler.accept((DisplayMode)displayMode.getSelectedItem());});updateDisplayLegend();
         JPanel body=new ScrollableBody();body.setLayout(new BoxLayout(body,BoxLayout.Y_AXIS));
         body.add(connectionPanel());body.add(Box.createVerticalStrut(6));body.add(selectionPanel());
         advancedToggle.setAlignmentX(Component.LEFT_ALIGNMENT);body.add(advancedToggle);
@@ -134,6 +141,12 @@ public final class LoadReferenceDialog extends JPanel {
         GridBagConstraints g=new GridBagConstraints();g.gridx=0;g.gridy=row;g.insets=new Insets(3,5,3,5);g.anchor=GridBagConstraints.WEST;g.fill=GridBagConstraints.HORIZONTAL;g.weightx=right==null?1:0;g.gridwidth=right==null?2:1;panel.add(left,g);
         if(right!=null){g.gridx=1;g.gridwidth=1;g.weightx=1;panel.add(right,g);}
     }
+    private void updateDisplayLegend(){displayLegend.setText(displayMode.getSelectedItem()==DisplayMode.POINTS?"<html>Original GPS observations. Change views without downloading again.<br>&nbsp;</html>":"<html>Faint → strong = fewer → more observations (relative per source/view).<br>Density is not accuracy; long stops and frequent logging can dominate.</html>");}
+    public void setDisplayMode(DisplayMode value){displayMode.setSelectedItem(Objects.requireNonNull(value));}
+    public DisplayMode getDisplayMode(){return (DisplayMode)displayMode.getSelectedItem();}
+    public JComboBox<DisplayMode> displayModeSelector(){return displayMode;}
+    public JLabel displayLegend(){return displayLegend;}
+    public void setDisplayModeHandler(Consumer<DisplayMode> handler){displayModeHandler=Objects.requireNonNull(handler);}
     private void updateModeControls(){boolean recent=mode.getSelectedItem()==LoadOptions.Mode.MOST_RECENT;start.setEnabled(!loading&&!recent);end.setEnabled(!loading&&!recent);recentCount.setEnabled(!loading&&recent);}
     private String selectedId(){int row=table.getSelectedRow();return row>=0&&row<registry.rows().size()?registry.rows().get(row).id:null;}
     private void updateKeyState(){String id=selectedId();keyFor.setText("API key for: "+sourceLabel(id));boolean has=id!=null&&registry.session(id)!=null&&registry.session(id).snapshot().apiKey()!=null;keyState.setText(has?(registry.isRemembered(id)?"Remembered key ready":"Key ready for this session"):"Key needed");remember.setSelected(id!=null&&registry.isRemembered(id));}

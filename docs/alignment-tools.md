@@ -1,21 +1,26 @@
 # Alignment tools: implemented versus proposed
 
-## Implemented in v0.3.0
+## Implemented workflow
 
-A guided Imagery-menu workflow loads original GPS observations into separate, read-only, source-colored layers. Live progress samples existing counters every 200 ms, including elapsed time while the server has not yet returned a complete page. It makes no additional HTTP requests. Recent/count and complete date-range modes retain the existing bounds, quotas, credentials, and replacement semantics.
+A single **GPS → Dawarich GPS…** workflow loads original GPS observations into separate, read-only, source-colored layers. Live progress samples existing counters every 200 ms, including elapsed time while the server has not yet returned a complete page. It makes no additional HTTP requests. Recent/count and complete date-range modes retain the existing bounds, quotas, credentials, and replacement semantics.
 
 Use repeated observations as visual evidence alongside other suitable reference information. The plugin never decides a correct offset, moves imagery, snaps observations to roads, edits OSM objects, or uploads data. More observations or a brighter density cluster must not be labeled as guaranteed positional accuracy.
 
-## Proposed next: reversible density view
+## Implemented in v0.5.0: reversible heatmap
 
-This is a design direction, not an available toggle.
+Choose **Points / Heatmap / Both** above the setup form. Display changes reuse existing local layers and issue no HTTP requests. Points stays the default; the display choice persists independently of credentials or download scope.
 
-- Offer Points / Density / Both, keeping the original data intact and individual sources independently controllable.
-- Explain the legend as relative observation density, not confidence, an error estimate, or a proposed correct alignment.
-- Do not average a whole trip/viewport into a centroid or connect unrelated observations into invented lines.
-- Evaluate how to prevent long stationary logs and repeated correlated samples from overwhelming separate travel passes; explicitly identify any time/pass normalization.
-- Build bounded grids or tiles off the UI thread, cache by dataset/projection/zoom/style, and reuse prepared images during paints. Do not recompute a full density estimate for every repaint.
-- Acceptance: synthetic parallel corridors and stationary clusters remain distinguishable, no source mixing, toggling restores unchanged original observations, stale workers cannot publish, and measured paint/compute/memory cost fits an explicit budget.
+- Each source is processed separately in its layer color. Log-scaled alpha shows density relative to that source's current-view maximum. Intensities are not directly comparable across sources/views.
+- The visible legend states density is not accuracy. No stationary/pass normalization is applied: a long stop or faster logging can dominate. This is an explicit first-version limitation, not independent-pass confidence.
+- All coordinates/IDs/timestamps remain intact. The only smoothing is a derived raster blur of approximately 12 screen pixels with cells at least 4 pixels across; original observations are neither averaged nor connected into tracks.
+- Projection, binning, blur, and colorization run on a lazy source-local daemon worker using captured immutable view state. A layer coalesces pending views, cancels obsolete work, and rejects stale publication.
+- Both the grid and output image are bounded to 262,144 cells/pixels. Same-view/dataset/style paints reuse the image; Points, replacement, recolor, and destruction clear derived state. A new view shows Preparing heatmap rather than painting a misaligned old image.
+- Both overlays the original dots above density, retaining point-rendering cost. Layers remain independently hideable/recolorable with host opacity controls. No disk cache or server changes are introduced.
+- Tests cover cluster separation, source color, offscreen/empty data, unchanged original inputs, cache reuse, pan/zoom/resize, recoloring, stale replacement/destroy, cancellation, and actual MapView performance. See performance.md for measured limits.
+
+## Proposed next: normalize stationary / repeated observations
+
+Investigate reversible time/pass weighting so long stationary logs do not drown out separate travel passes. Any implementation must state its weighting and must not label density as guaranteed accuracy or silently discard original observations.
 
 ## Proposed next: reported-accuracy filter
 

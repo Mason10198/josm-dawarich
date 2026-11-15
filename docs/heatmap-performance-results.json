@@ -1,0 +1,47 @@
+{
+  "method": "One local synthetic Linux/JOSM19678 run per count/source configuration; 20 warm same-view MapView paints after background density preparation. Imagery disabled. Cold preparation includes polling/first paint. Not a pan/zoom sustained frame-rate or cross-platform guarantee.",
+  "results": [
+    {
+      "SMOKE_HEATMAP_POINTS": 50000,
+      "SOURCES": 1,
+      "PREPARE_MS": 93,
+      "WARM_MEAN_MS": 8.662415300000001,
+      "WARM_P95_MS": 10.310849
+    },
+    {
+      "SMOKE_HEATMAP_POINTS": 50000,
+      "SOURCES": 2,
+      "PREPARE_MS": 50,
+      "WARM_MEAN_MS": 10.363936650000001,
+      "WARM_P95_MS": 10.558299
+    },
+    {
+      "SMOKE_HEATMAP_POINTS": 50000,
+      "SOURCES": 4,
+      "PREPARE_MS": 73,
+      "WARM_MEAN_MS": 16.41230325,
+      "WARM_P95_MS": 16.60719
+    },
+    {
+      "SMOKE_HEATMAP_POINTS": 250000,
+      "SOURCES": 1,
+      "PREPARE_MS": 292,
+      "WARM_MEAN_MS": 6.300143,
+      "WARM_P95_MS": 6.782102
+    },
+    {
+      "SMOKE_HEATMAP_POINTS": 250000,
+      "SOURCES": 2,
+      "PREPARE_MS": 256,
+      "WARM_MEAN_MS": 26.129006649999997,
+      "WARM_P95_MS": 38.259921
+    },
+    {
+      "SMOKE_HEATMAP_POINTS": 250000,
+      "SOURCES": 4,
+      "PREPARE_MS": 260,
+      "WARM_MEAN_MS": 23.702040800000002,
+      "WARM_P95_MS": 24.652184
+    }
+  ]
+}

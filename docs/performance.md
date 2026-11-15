@@ -53,6 +53,21 @@ One synthetic Linux packaged-JOSM large-download run returned and published all 
 
 The credential acceptance uses one isolated profile and two actual JOSM processes, re-copies the plugin archive between launches, and verifies remembered-key restoration, immediate source-metadata persistence, cleared transient/RAM copies, sensitive-field registration, unrelated-credential isolation, and no startup download. It uses dummy credentials only. The default credential backend is unencrypted local preferences, not an asserted OS keychain.
 
+## Heatmap rendering (v0.5.0)
+
+`python3 scripts/gui-smoke.py --renderer --points 250000 --large-download` separately checks original-dot paints, derived heatmap preparation/reuse, and a real 250,000-point download/publication. Measurements for 50k and 250k are retained in `heatmap-performance-results.json`.
+
+| Aggregate points | Sources | Cold heatmap preparation ms | Cached heatmap mean / p95 ms |
+|---:|---:|---:|---:|
+| 50,000 | 1 | 93 | 8.7 / 10.3 |
+| 50,000 | 2 | 50 | 10.4 / 10.6 |
+| 50,000 | 4 | 73 | 16.4 / 16.6 |
+| 250,000 | 1 | 292 | 6.3 / 6.8 |
+| 250,000 | 2 | 256 | 26.1 / 38.3 |
+| 250,000 | 4 | 260 | 23.7 / 24.7 |
+
+These are one synthetic Linux run per configuration with imagery disabled, not repeatable medians or WAN/Windows/macOS promises. Cached timings are for an unchanged view, not continuous panning. Panning/zooming invalidates the raster and prepares another outside the EDT. Both still pays the original-dot rendering cost. Grid and output raster are independently bounded to 262,144 cells/pixels per source; each layer coalesces pending work and holds only one prepared image. Points stays the default. Relative density deliberately has no accuracy/stationary-pass normalization.
+
 ## Recorded run
 
 Environment: Linux 7.0.14-26-pve (glibc 2.41), Microsoft OpenJDK 17.0.21.0.2, AMD Ryzen 7 PRO 8845HS, 2 visible logical CPUs. The produced plugin jar was 73,369 bytes (52 entries; thin, no bundled dependency jars).
